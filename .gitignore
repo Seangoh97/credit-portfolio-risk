@@ -1,0 +1,7 @@
+# Data is not redistributed with the repository (see README, "Getting the data")
+data/*.csv
+data/*.parquet
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/

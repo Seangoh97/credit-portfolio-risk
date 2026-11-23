@@ -1,0 +1,847 @@
+{
+  "checks": {
+    "recalibrated mean PD equals calibration default rate [LC sub-grade]": {
+      "value": -4.6351811278100286e-15,
+      "limit": 1e-06,
+      "passed": true
+    },
+    "recalibrated mean PD equals calibration default rate [Logistic regression]": {
+      "value": 4.0925596245244833e-13,
+      "limit": 1e-06,
+      "passed": true
+    },
+    "recalibrated mean PD equals calibration default rate [Gradient boosting]": {
+      "value": 1.7513768213461844e-14,
+      "limit": 1e-06,
+      "passed": true
+    },
+    "rho unchanged when integration grid is doubled": {
+      "value": -9.869983222561551e-08,
+      "limit": 1e-05,
+      "passed": true
+    },
+    "Monte Carlo vs analytic expected loss [data-implied]": {
+      "value": -4.097876398323486e-06,
+      "limit": 0.002,
+      "passed": true
+    },
+    "Monte Carlo vs semi-analytic 99.9% loss [data-implied]": {
+      "value": -0.002300563739982442,
+      "limit": 0.015,
+      "passed": true
+    },
+    "Monte Carlo vs semi-analytic 99% expected shortfall [data-implied]": {
+      "value": 0.0001524002473045627,
+      "limit": 0.01,
+      "passed": true
+    },
+    "tail contributions sum to expected shortfall [data-implied]": {
+      "value": -2.220446049250313e-16,
+      "limit": 1e-09,
+      "passed": true
+    },
+    "Monte Carlo vs analytic expected loss [Basel reference]": {
+      "value": -9.577311826491908e-06,
+      "limit": 0.002,
+      "passed": true
+    },
+    "Monte Carlo vs semi-analytic 99.9% loss [Basel reference]": {
+      "value": -0.003922945527730204,
+      "limit": 0.015,
+      "passed": true
+    },
+    "Monte Carlo vs semi-analytic 99% expected shortfall [Basel reference]": {
+      "value": -0.0001454092314412403,
+      "limit": 0.01,
+      "passed": true
+    },
+    "tail contributions sum to expected shortfall [Basel reference]": {
+      "value": 0.0,
+      "limit": 1e-09,
+      "passed": true
+    },
+    "tightening curves match the policy table": {
+      "value": 0.0,
+      "limit": 1e-09,
+      "passed": true
+    }
+  },
+  "settings": {
+    "seed": 42,
+    "scenarios": 20000,
+    "train": [
+      "2012-01-01",
+      "2013-12-31"
+    ],
+    "calibration": [
+      "2014-01-01",
+      "2014-12-31"
+    ],
+    "test": [
+      "2015-01-01",
+      "2015-12-31"
+    ],
+    "point_in_time_train": [
+      "2007-07-01",
+      "2011-12-31"
+    ],
+    "rho_window": [
+      "2007-07-01",
+      "2014-12-31"
+    ]
+  },
+  "data": {
+    "audit": {
+      "rows_in_extract": 620930,
+      "status_counts": {
+        "Fully Paid": 532433,
+        "Charged Off": 85912,
+        "Does not meet the credit policy. Status:Fully Paid": 1789,
+        "Does not meet the credit policy. Status:Charged Off": 649,
+        "Current": 72,
+        "Late (31-120 days)": 61,
+        "In Grace Period": 9,
+        "Late (16-30 days)": 5
+      },
+      "rows_dropped_no_final_outcome": 2585,
+      "rows_dropped_bad_amounts": 0,
+      "rows_clean": 618345,
+      "default_rate": 0.13893861840881708
+    },
+    "samples": {
+      "train": {
+        "loans": 143892,
+        "default_rate": 0.12704667389430963,
+        "funded": 1779761050.0,
+        "first_issue": "2012-01-01",
+        "last_issue": "2013-12-01"
+      },
+      "calib": {
+        "loans": 162570,
+        "default_rate": 0.13726394783785445,
+        "funded": 2046040750.0,
+        "first_issue": "2014-01-01",
+        "last_issue": "2014-12-01"
+      },
+      "test": {
+        "loans": 282787,
+        "default_rate": 0.14883640337073487,
+        "funded": 3620635675.0,
+        "first_issue": "2015-01-01",
+        "last_issue": "2015-12-01"
+      }
+    }
+  },
+  "return_params": {
+    "severity": {
+      "A": 0.4530145049435392,
+      "B": 0.4822534090223528,
+      "C": 0.5107656133333163,
+      "D": 0.5443384746131994,
+      "E": 0.573112424730741,
+      "FG": 0.6104516397370586
+    },
+    "return_if_default": {
+      "A": -0.3656284545718934,
+      "B": -0.35360974878626633,
+      "C": -0.35428066517065615,
+      "D": -0.3638634823111014,
+      "E": -0.3728380189171707,
+      "FG": -0.3934453734229062
+    },
+    "interest_realisation": {
+      "A": 0.8390419469544758,
+      "B": 0.8261702454326015,
+      "C": 0.8078157925665896,
+      "D": 0.7985013558876853,
+      "E": 0.7783497084585991,
+      "FG": 0.7756248376629452
+    },
+    "defaults_used": {
+      "A": 3458,
+      "B": 11790,
+      "C": 13090,
+      "D": 8582,
+      "E": 2837,
+      "FG": 839
+    }
+  },
+  "recalibration": {
+    "LC sub-grade": {
+      "intercept": 0.15837217017175131,
+      "slope": 1.0646434048344646
+    },
+    "Logistic regression": {
+      "intercept": 0.1164224950646704,
+      "slope": 0.9662167650014855
+    },
+    "Gradient boosting": {
+      "intercept": 0.07193349280390393,
+      "slope": 0.9669355745561785
+    }
+  },
+  "model_metrics": [
+    {
+      "model": "LC sub-grade",
+      "stage": "as fitted on 2012-13",
+      "auc": 0.6786417383122244,
+      "gini": 0.3572834766244488,
+      "ks": 0.26194575341328713,
+      "brier": 0.1215386427078039,
+      "log_loss": 0.39982732135523813,
+      "mean_pd": 0.1260841209776471,
+      "default_rate": 0.14883640337073487
+    },
+    {
+      "model": "LC sub-grade",
+      "stage": "recalibrated on 2014",
+      "auc": 0.6786417383122244,
+      "gini": 0.3572834766244488,
+      "ks": 0.26194575341328713,
+      "brier": 0.12116742976148012,
+      "log_loss": 0.39854741536837757,
+      "mean_pd": 0.13027216920598697,
+      "default_rate": 0.14883640337073487
+    },
+    {
+      "model": "Logistic regression",
+      "stage": "as fitted on 2012-13",
+      "auc": 0.6915746275965182,
+      "gini": 0.38314925519303644,
+      "ks": 0.27714422011391515,
+      "brier": 0.12121387260474732,
+      "log_loss": 0.39930192915607726,
+      "mean_pd": 0.10854803958184732,
+      "default_rate": 0.14883640337073487
+    },
+    {
+      "model": "Logistic regression",
+      "stage": "recalibrated on 2014",
+      "auc": 0.6915746275965182,
+      "gini": 0.38314925519303644,
+      "ks": 0.27714422011391515,
+      "brier": 0.1198715283694855,
+      "log_loss": 0.39356201110156347,
+      "mean_pd": 0.12642524633387486,
+      "default_rate": 0.14883640337073487
+    },
+    {
+      "model": "Gradient boosting",
+      "stage": "as fitted on 2012-13",
+      "auc": 0.6987784862019948,
+      "gini": 0.3975569724039896,
+      "ks": 0.28820116657241135,
+      "brier": 0.11968883745540239,
+      "log_loss": 0.3930219392543477,
+      "mean_pd": 0.11830889977531277,
+      "default_rate": 0.14883640337073487
+    },
+    {
+      "model": "Gradient boosting",
+      "stage": "recalibrated on 2014",
+      "auc": 0.6987784862019948,
+      "gini": 0.3975569724039896,
+      "ks": 0.28820116657241135,
+      "brier": 0.1189308682098129,
+      "log_loss": 0.3898382581132308,
+      "mean_pd": 0.13190355510093488,
+      "default_rate": 0.14883640337073487
+    }
+  ],
+  "gbm": {
+    "trees": 432,
+    "holdout_auc": 0.6860797030724827,
+    "holdout_start": "2013-10-01",
+    "features": 65
+  },
+  "auc_gain": {
+    "gbm_vs_grade": {
+      "difference": 0.02013674788977038,
+      "ci_low": 0.018552369155587455,
+      "ci_high": 0.022037637403586573,
+      "n_boot": 200
+    },
+    "gbm_vs_logit": {
+      "difference": 0.007203858605476565,
+      "ci_low": 0.006127061652870474,
+      "ci_high": 0.00831686397353231,
+      "n_boot": 200
+    }
+  },
+  "robustness": {
+    "auc_early_performance_point_in_time": 0.6842561269989168,
+    "early_default_rate_in_training": 0.025602535234759402,
+    "early_defaults_in_training": 3684,
+    "auc_lc_sub_grade": 0.6786417383122244,
+    "auc_main_model": 0.6987784862019948,
+    "auc_without_lender_grade_and_rate": 0.6878908819947088,
+    "auc_core_features_trained_2012_13": 0.6852543226760945,
+    "auc_strict_point_in_time": 0.665971233857939,
+    "strict_training_loans": 29095,
+    "strict_training_last_issue": "2011-12-01"
+  },
+  "top_drivers": {
+    "int_rate": 0.22753501100226722,
+    "annual_inc": 0.13312010236603417,
+    "acc_open_past_24mths": 0.11460126300176253,
+    "sub_grade_num": 0.09570449532068286,
+    "dti": 0.08479175317224906,
+    "payment_to_income": 0.07584613044990735,
+    "fico_range_low": 0.06879476338528165,
+    "mths_since_recent_bc": 0.057319714997423124,
+    "purpose": 0.05620728842779148,
+    "home_ownership": 0.05139404529600502
+  },
+  "correlation": {
+    "mle_quarterly": {
+      "rho": 0.004651216482980502,
+      "ci_low": 0.002464182822302133,
+      "ci_high": 0.009252999974910756,
+      "confidence": 0.95,
+      "pd_by_grade": [
+        0.053957236438934755,
+        0.10596266485520789,
+        0.1633488199091812,
+        0.21034182501710996,
+        0.2506293790523382,
+        0.28276390905279225,
+        0.33853482007251207
+      ],
+      "log_likelihood": -742.1443069910893,
+      "cohorts": 30,
+      "grid_points": 4001
+    },
+    "mle_annual": {
+      "rho": 0.004355869045111445,
+      "ci_low": 0.001495852936380961,
+      "ci_high": 0.01661564884401082,
+      "confidence": 0.95,
+      "pd_by_grade": [
+        0.05515701081740502,
+        0.10712963679631105,
+        0.16533230157014767,
+        0.2125843909929943,
+        0.2525061194169953,
+        0.282953665239815,
+        0.34143240202421
+      ],
+      "log_likelihood": -267.58852628771274,
+      "cohorts": 8,
+      "grid_points": 4001
+    },
+    "moments_quarterly": 0.00564572920306637,
+    "moments_annual": 0.010079579450898749,
+    "cohort_loans": 335557.0,
+    "basel_reference": 0.07040917223241526,
+    "default_correlation_at_data_rho": 0.0018600824054947542,
+    "default_correlation_at_reference_rho": 0.029313251412651863
+  },
+  "portfolio": {
+    "loans": 282787,
+    "funded": 3620635675.0,
+    "loss_if_default_total": 1780683536.0924788,
+    "mean_pd": 0.13190355510093488,
+    "default_rate": 0.14883640337073487,
+    "expected_loss": 232990439.00182545,
+    "realised_loss": 273751933.24259764,
+    "forecast_gap": 40761494.24077219,
+    "gap_from_default_rate": 34612270.18229118,
+    "gap_from_severity": 6149224.058481008,
+    "scenarios": {
+      "data-implied": {
+        "rho": 0.004651216482980502,
+        "monte_carlo": {
+          "expected_loss": 232989484.23580444,
+          "loss_std": 23875377.504452445,
+          "var_0.95": 273581553.43820155,
+          "es_0.95": 285048176.92783463,
+          "capital_0.95": 40592069.20239711,
+          "var_0.99": 292038157.74472547,
+          "es_0.99": 301855166.57514393,
+          "capital_0.99": 59048673.50892103,
+          "var_0.999": 313225578.37233293,
+          "es_0.999": 321222895.1405608,
+          "capital_0.999": 80236094.13652849
+        },
+        "semi_analytic": {
+          "expected_loss": 232990439.0034239,
+          "var_0.95": 273654592.3418562,
+          "es_0.95": 285053891.73444843,
+          "capital_0.95": 40664153.33843228,
+          "var_0.99": 292207034.38195074,
+          "es_0.99": 301809170.78287786,
+          "capital_0.99": 59216595.37852684,
+          "var_0.999": 313947835.378651,
+          "es_0.999": 322131092.0093578,
+          "capital_0.999": 80957396.37522712
+        },
+        "asrf_var_0.999": 313835755.26187265,
+        "realised_loss_percentile": 0.95065,
+        "realised_loss_percentile_semi_analytic": 0.9503756854682279,
+        "tail_contribution_0.99": {
+          "A": 34164531.42886152,
+          "B": 75542650.30023496,
+          "C": 100266075.61298513,
+          "D": 63657588.883608006,
+          "E": 24146745.058553558,
+          "F": 3441116.8851817143,
+          "G": 636458.405718957
+        }
+      },
+      "Basel reference": {
+        "rho": 0.07040917223241526,
+        "monte_carlo": {
+          "expected_loss": 232988207.57973853,
+          "loss_std": 94394661.80882491,
+          "var_0.95": 407673509.7994275,
+          "es_0.95": 468362358.1124553,
+          "capital_0.95": 174685302.21968898,
+          "var_0.99": 507221081.06002027,
+          "es_0.99": 559969386.3415637,
+          "capital_0.99": 274232873.4802817,
+          "var_0.999": 626209573.9595964,
+          "es_0.999": 672848415.940942,
+          "capital_0.999": 393221366.3798579
+        },
+        "semi_analytic": {
+          "expected_loss": 232990439.3682748,
+          "var_0.95": 407728193.4904318,
+          "es_0.95": 468373557.0139933,
+          "capital_0.95": 174737754.12215698,
+          "var_0.99": 506260038.34159094,
+          "es_0.99": 560050822.9012898,
+          "capital_0.99": 273269598.97331613,
+          "var_0.999": 628675835.0149604,
+          "es_0.999": 675951949.2253165,
+          "capital_0.999": 395685395.6466856
+        },
+        "asrf_var_0.999": 628646093.7794573,
+        "realised_loss_percentile": 0.70645,
+        "realised_loss_percentile_semi_analytic": 0.7063759858715366,
+        "tail_contribution_0.99": {
+          "A": 77487295.54196474,
+          "B": 151600281.7754056,
+          "C": 180814538.82512292,
+          "D": 105820567.47908781,
+          "E": 38088572.33906177,
+          "F": 5221734.345275507,
+          "G": 936396.0356453538
+        }
+      }
+    }
+  },
+  "capital_by_pd_model": {
+    "LC sub-grade": {
+      "data-implied": {
+        "expected_loss": 233908145.1950547,
+        "var_0.95": 276360849.6780827,
+        "es_0.95": 288307321.8775529,
+        "capital_0.95": 42452704.483027995,
+        "var_0.99": 295802430.2273337,
+        "es_0.99": 305882309.93798816,
+        "capital_0.99": 61894285.032279015,
+        "var_0.999": 318622328.9999192,
+        "es_0.999": 327222216.8268001,
+        "capital_0.999": 84714183.80486447
+      },
+      "Basel reference": {
+        "expected_loss": 233908145.62449956,
+        "var_0.95": 417104674.35302204,
+        "es_0.95": 481305511.7432027,
+        "capital_0.95": 183196528.72852248,
+        "var_0.99": 521427515.40797925,
+        "es_0.99": 578402134.1688074,
+        "capital_0.99": 287519369.7834797,
+        "var_0.999": 651091594.9856077,
+        "es_0.999": 701051854.4419678,
+        "capital_0.999": 417183449.3611082
+      }
+    },
+    "Logistic regression": {
+      "data-implied": {
+        "expected_loss": 219526145.08763075,
+        "var_0.95": 258952831.4714737,
+        "es_0.95": 270054589.4901369,
+        "capital_0.95": 39426686.383842945,
+        "var_0.99": 277019354.97563183,
+        "es_0.99": 286390544.5637173,
+        "capital_0.99": 57493209.888001084,
+        "var_0.999": 298236467.7699593,
+        "es_0.999": 306237331.1154961,
+        "capital_0.999": 78710322.68232852
+      },
+      "Basel reference": {
+        "expected_loss": 219526145.44538093,
+        "var_0.95": 389589909.33203495,
+        "es_0.95": 449566689.2368398,
+        "capital_0.95": 170063763.88665402,
+        "var_0.99": 486992160.9634901,
+        "es_0.99": 540521064.1529912,
+        "capital_0.99": 267466015.5181092,
+        "var_0.999": 608895111.3464327,
+        "es_0.999": 656248026.8123313,
+        "capital_0.999": 389368965.90105176
+      }
+    },
+    "Gradient boosting": {
+      "data-implied": {
+        "expected_loss": 232990439.0034239,
+        "var_0.95": 273654592.3418562,
+        "es_0.95": 285053891.73444843,
+        "capital_0.95": 40664153.33843228,
+        "var_0.99": 292207034.38195074,
+        "es_0.99": 301809170.78287786,
+        "capital_0.99": 59216595.37852684,
+        "var_0.999": 313947835.378651,
+        "es_0.999": 322131092.0093578,
+        "capital_0.999": 80957396.37522712
+      },
+      "Basel reference": {
+        "expected_loss": 232990439.3682748,
+        "var_0.95": 407728193.4904318,
+        "es_0.95": 468373557.0139933,
+        "capital_0.95": 174737754.12215698,
+        "var_0.99": 506260038.34159094,
+        "es_0.99": 560050822.9012898,
+        "capital_0.99": 273269598.97331613,
+        "var_0.999": 628675835.0149604,
+        "es_0.999": 675951949.2253165,
+        "capital_0.999": 395685395.6466856
+      }
+    }
+  },
+  "risk_by_grade": [
+    {
+      "grade": "A",
+      "loans": 70100,
+      "funded": 1014474175.0,
+      "mean_pd": 0.05527571450723028,
+      "default_rate": 0.05423680456490727,
+      "expected_loss": 24254720.65468143,
+      "realised_loss": 23826515.556599513,
+      "realised_return": 0.06826363625436027,
+      "tail_loss_data": 34164531.42886152,
+      "tail_loss_reference": 77487295.54196474,
+      "share_funded": 0.28019228280956493,
+      "share_expected_loss": 0.1041017852860967,
+      "share_tail_loss": 0.13837773534051723
+    },
+    {
+      "grade": "B",
+      "loans": 91645,
+      "funded": 1147172225.0,
+      "mean_pd": 0.10528391862640743,
+      "default_rate": 0.11894811500900213,
+      "expected_loss": 56407916.70193758,
+      "realised_loss": 64987122.86419949,
+      "realised_return": 0.07282171794596273,
+      "tail_loss_data": 75542650.30023496,
+      "tail_loss_reference": 151600281.7754056,
+      "share_funded": 0.31684276684369794,
+      "share_expected_loss": 0.24210399767303611,
+      "share_tail_loss": 0.27072958892601706
+    },
+    {
+      "grade": "C",
+      "loans": 77348,
+      "funded": 919734150.0,
+      "mean_pd": 0.16849073467954864,
+      "default_rate": 0.19443295237110203,
+      "expected_loss": 78041152.23917708,
+      "realised_loss": 94415320.7700006,
+      "realised_return": 0.06265136955926492,
+      "tail_loss_data": 100266075.61298513,
+      "tail_loss_reference": 180814538.82512292,
+      "share_funded": 0.25402560007642855,
+      "share_expected_loss": 0.3349543121748686,
+      "share_tail_loss": 0.3229007571403765
+    },
+    {
+      "grade": "D",
+      "loans": 32668,
+      "funded": 401614150.0,
+      "mean_pd": 0.23239522106746086,
+      "default_rate": 0.2621219542059508,
+      "expected_loss": 51122034.860642724,
+      "realised_loss": 61378522.90869872,
+      "realised_return": 0.04504248647632757,
+      "tail_loss_data": 63657588.883608006,
+      "tail_loss_reference": 105820567.47908781,
+      "share_funded": 0.11092365707300832,
+      "share_expected_loss": 0.21941687856230968,
+      "share_tail_loss": 0.18897562984727276
+    },
+    {
+      "grade": "E",
+      "loans": 9424,
+      "funded": 121091625.0,
+      "mean_pd": 0.2791374610245039,
+      "default_rate": 0.32841680814940577,
+      "expected_loss": 19753278.963280052,
+      "realised_loss": 24409523.664699186,
+      "realised_return": 0.015921301601958083,
+      "tail_loss_data": 24146745.058553558,
+      "tail_loss_reference": 38088572.33906177,
+      "share_funded": 0.03344485219435949,
+      "share_expected_loss": 0.08478150025343015,
+      "share_tail_loss": 0.06801902616124257
+    },
+    {
+      "grade": "F",
+      "loans": 1358,
+      "funded": 14180000.0,
+      "mean_pd": 0.3205585664385225,
+      "default_rate": 0.42415316642120765,
+      "expected_loss": 2873906.5128195616,
+      "realised_loss": 3939481.6619999744,
+      "realised_return": -0.02565601785508883,
+      "tail_loss_data": 3441116.8851817143,
+      "tail_loss_reference": 5221734.345275507,
+      "share_funded": 0.003916439341829111,
+      "share_expected_loss": 0.012334868869005594,
+      "share_tail_loss": 0.009325035390578324
+    },
+    {
+      "grade": "G",
+      "loans": 244,
+      "funded": 2369350.0,
+      "mean_pd": 0.3558193979923795,
+      "default_rate": 0.46311475409836067,
+      "expected_loss": 537429.0692868918,
+      "realised_loss": 795445.8164001548,
+      "realised_return": -0.06424216032180019,
+      "tail_loss_data": 636458.405718957,
+      "tail_loss_reference": 936396.0356453538,
+      "share_funded": 0.0006544016611116224,
+      "share_expected_loss": 0.0023066571812531823,
+      "share_tail_loss": 0.0016722271939955335
+    }
+  ],
+  "tightening": [
+    {
+      "ranking": "Gradient boosting",
+      "loans": 282787,
+      "declined_share": 0.0,
+      "funded": 3620635675.0,
+      "default_rate": 0.14883640337073487,
+      "principal_loss": 273751933.24259764,
+      "net_pnl": 229914974.1113905,
+      "return_on_funded": 0.06350127291152831,
+      "funded_declined": 0.0,
+      "expected_loss": 232990439.00182545,
+      "capital_0.999_data": 80957396.37522712,
+      "capital_0.999_reference": 395685395.6466856
+    },
+    {
+      "ranking": "Gradient boosting, point-in-time version",
+      "loans": 282787,
+      "declined_share": 0.0,
+      "funded": 3620635675.0,
+      "default_rate": 0.14883640337073487,
+      "principal_loss": 273751933.24259764,
+      "net_pnl": 229914974.1113905,
+      "return_on_funded": 0.06350127291152831,
+      "funded_declined": 0.0,
+      "expected_loss": 232990439.00182545,
+      "capital_0.999_data": 80957396.37522712,
+      "capital_0.999_reference": 395685395.6466856
+    },
+    {
+      "ranking": "Lending Club sub-grade",
+      "loans": 282787,
+      "declined_share": 0.0,
+      "funded": 3620635675.0,
+      "default_rate": 0.14883640337073487,
+      "principal_loss": 273751933.24259764,
+      "net_pnl": 229914974.1113905,
+      "return_on_funded": 0.06350127291152831,
+      "funded_declined": 0.0,
+      "expected_loss": 232990439.00182545,
+      "capital_0.999_data": 80957396.37522712,
+      "capital_0.999_reference": 395685395.6466856
+    },
+    {
+      "ranking": "Gradient boosting",
+      "loans": 268648,
+      "declined_share": 0.04999876231934286,
+      "funded": 3446308075.0,
+      "default_rate": 0.1374102915339031,
+      "principal_loss": 235623661.62839907,
+      "net_pnl": 232647169.73573312,
+      "return_on_funded": 0.06750620219457111,
+      "funded_declined": 174327600.0,
+      "expected_loss": 199349540.92245364,
+      "capital_0.999_data": 73278783.07765964,
+      "capital_0.999_reference": 364803967.5010524
+    },
+    {
+      "ranking": "Gradient boosting, point-in-time version",
+      "loans": 268648,
+      "declined_share": 0.04999876231934286,
+      "funded": 3471472125.0,
+      "default_rate": 0.13909279056609392,
+      "principal_loss": 241869685.5830989,
+      "net_pnl": 232133110.66485798,
+      "return_on_funded": 0.06686878140058751,
+      "funded_declined": 149163550.0,
+      "expected_loss": 206492490.17792946,
+      "capital_0.999_data": 74600724.76664793,
+      "capital_0.999_reference": 369522472.92801416
+    },
+    {
+      "ranking": "Lending Club sub-grade",
+      "loans": 268648,
+      "declined_share": 0.04999876231934286,
+      "funded": 3442195600.0,
+      "default_rate": 0.13923796194276525,
+      "principal_loss": 237612349.10469833,
+      "net_pnl": 226943976.63578603,
+      "return_on_funded": 0.06593000602167583,
+      "funded_declined": 178440075.0,
+      "expected_loss": 203992784.64326864,
+      "capital_0.999_data": 73546309.4326942,
+      "capital_0.999_reference": 364341900.762442
+    },
+    {
+      "ranking": "Gradient boosting",
+      "loans": 254508,
+      "declined_share": 0.10000106086913474,
+      "funded": 3277257850.0,
+      "default_rate": 0.12856177408961605,
+      "principal_loss": 206802932.462399,
+      "net_pnl": 229161053.74209294,
+      "return_on_funded": 0.06992463340719221,
+      "funded_declined": 343377825.0,
+      "expected_loss": 174610472.57407916,
+      "capital_0.999_data": 66591051.36742732,
+      "capital_0.999_reference": 336201093.10421354
+    },
+    {
+      "ranking": "Gradient boosting, point-in-time version",
+      "loans": 254508,
+      "declined_share": 0.10000106086913474,
+      "funded": 3318542525.0,
+      "default_rate": 0.13086032659091265,
+      "principal_loss": 215647151.9415987,
+      "net_pnl": 229106835.06593144,
+      "return_on_funded": 0.06903839060068438,
+      "funded_declined": 302093150.0,
+      "expected_loss": 184420708.61910212,
+      "capital_0.999_data": 68670901.9995996,
+      "capital_0.999_reference": 344058242.33526945
+    },
+    {
+      "ranking": "Lending Club sub-grade",
+      "loans": 254508,
+      "declined_share": 0.10000106086913474,
+      "funded": 3265687975.0,
+      "default_rate": 0.1317954641897308,
+      "principal_loss": 209354460.7375994,
+      "net_pnl": 219468651.3410318,
+      "return_on_funded": 0.06720441543134009,
+      "funded_declined": 354947700.0,
+      "expected_loss": 180748724.71379152,
+      "capital_0.999_data": 67023203.83630651,
+      "capital_0.999_reference": 335723210.19590497
+    },
+    {
+      "ranking": "Gradient boosting",
+      "loans": 226230,
+      "declined_share": 0.19999858550782035,
+      "funded": 2944853875.0,
+      "default_rate": 0.11358794147548955,
+      "principal_loss": 161051977.34089962,
+      "net_pnl": 215077665.97378063,
+      "return_on_funded": 0.07303508938071863,
+      "funded_declined": 675781800.0,
+      "expected_loss": 135975798.08670685,
+      "capital_0.999_data": 54916709.61912161,
+      "capital_0.999_reference": 283910094.4128541
+    },
+    {
+      "ranking": "Gradient boosting, point-in-time version",
+      "loans": 226230,
+      "declined_share": 0.19999858550782035,
+      "funded": 3009371125.0,
+      "default_rate": 0.11672634044998453,
+      "principal_loss": 171372916.34759963,
+      "net_pnl": 217296529.91483426,
+      "return_on_funded": 0.07220662420452853,
+      "funded_declined": 611264550.0,
+      "expected_loss": 147574428.83179346,
+      "capital_0.999_data": 57831779.803540766,
+      "capital_0.999_reference": 295752618.1406041
+    },
+    {
+      "ranking": "Lending Club sub-grade",
+      "loans": 226230,
+      "declined_share": 0.19999858550782035,
+      "funded": 2929028000.0,
+      "default_rate": 0.11879503160500375,
+      "principal_loss": 165084879.48809958,
+      "net_pnl": 201335462.3262754,
+      "return_on_funded": 0.06873797803444535,
+      "funded_declined": 691607675.0,
+      "expected_loss": 143371425.23750317,
+      "capital_0.999_data": 55774801.17343879,
+      "capital_0.999_reference": 284884418.9782981
+    }
+  ],
+  "expected_return_rule": [
+    {
+      "pd_model": "LC sub-grade",
+      "loans": 282517,
+      "declined_share": 0.0009547822212477852,
+      "funded": 3617954275.0,
+      "default_rate": 0.14857866960218324,
+      "principal_loss": 272956487.4261975,
+      "net_pnl": 230013640.67866194,
+      "return_on_funded": 0.06357560742767042,
+      "funded_declined": 2681400.0,
+      "declined_default_rate": 0.4185185185185185,
+      "declined_net_pnl": -98666.56727141663,
+      "declined_principal_loss": 795445.816400155,
+      "mean_expected_return": 0.07966499434994906
+    },
+    {
+      "pd_model": "Logistic regression",
+      "loans": 280477,
+      "declined_share": 0.008168692337342187,
+      "funded": 3595755225.0,
+      "default_rate": 0.146714347343989,
+      "principal_loss": 267721944.5829983,
+      "net_pnl": 230719088.18617743,
+      "return_on_funded": 0.06416429199130969,
+      "funded_declined": 24880450.0,
+      "declined_default_rate": 0.4064935064935065,
+      "declined_net_pnl": -804114.0747869611,
+      "declined_principal_loss": 6029988.65959936,
+      "mean_expected_return": 0.08377376029344155
+    },
+    {
+      "pd_model": "Gradient boosting",
+      "loans": 279735,
+      "declined_share": 0.010792575330549115,
+      "funded": 3584426850.0,
+      "default_rate": 0.14613830947146406,
+      "principal_loss": 265046485.52119815,
+      "net_pnl": 231666429.88011464,
+      "return_on_funded": 0.06463137331986972,
+      "funded_declined": 36208825.0,
+      "declined_default_rate": 0.39613368283093053,
+      "declined_net_pnl": -1751455.7687241454,
+      "declined_principal_loss": 8705447.721399523,
+      "mean_expected_return": 0.07982308352081803
+    }
+  ],
+  "book_actual": {
+    "loans": 282787,
+    "declined_share": 0.0,
+    "funded": 3620635675.0,
+    "default_rate": 0.14883640337073487,
+    "principal_loss": 273751933.24259764,
+    "net_pnl": 229914974.1113905,
+    "return_on_funded": 0.06350127291152831
+  },
+  "runtime_seconds": 686
+}

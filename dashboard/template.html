@@ -1,0 +1,1052 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Credit Portfolio Risk</title>
+<meta name="description" content="Interactive results of a credit risk project on 282,787 Lending Club loans: default prediction, portfolio loss simulation, economic capital and approval policy.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: a risk-committee pack. Summary first, then one module per question, each with its control, readout and chart. */
+:root {
+  color-scheme: light;
+  --bg: #f2f4f7;
+  --surface: #fcfdfe;
+  --ink: #0e1621;
+  --ink-2: #465263;
+  --muted: #6f7a89;
+  --grid: #e3e7ed;
+  --axis: #c3cbd6;
+  --line: rgba(14, 22, 33, 0.10);
+  --s1: #2a78d6;
+  --s2: #eb6834;
+  --s-neutral: #8b95a3;
+  --s1-soft: rgba(42, 120, 214, 0.16);
+  --s2-soft: rgba(235, 104, 52, 0.20);
+  --band: rgba(42, 120, 214, 0.10);
+  --good: #006300;
+  --bad: #b3261e;
+  --font: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0d1117; --surface: #151b23; --ink: #edf1f5; --ink-2: #b6c0cc; --muted: #8590a0;
+    --grid: #242c36; --axis: #3a4452; --line: rgba(255, 255, 255, 0.10);
+    --s1: #3987e5; --s2: #d95926; --s-neutral: #6f7a88;
+    --s1-soft: rgba(57, 135, 229, 0.24); --s2-soft: rgba(217, 89, 38, 0.28); --band: rgba(57, 135, 229, 0.16);
+    --good: #2fb344; --bad: #ef7a72;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0d1117; --surface: #151b23; --ink: #edf1f5; --ink-2: #b6c0cc; --muted: #8590a0;
+  --grid: #242c36; --axis: #3a4452; --line: rgba(255, 255, 255, 0.10);
+  --s1: #3987e5; --s2: #d95926; --s-neutral: #6f7a88;
+  --s1-soft: rgba(57, 135, 229, 0.24); --s2-soft: rgba(217, 89, 38, 0.28); --band: rgba(57, 135, 229, 0.16);
+  --good: #2fb344; --bad: #ef7a72;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.55 var(--font);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: calc(env(safe-area-inset-top, 0px) + 28px) calc(env(safe-area-inset-bottom, 0px) + 40px);
+}
+.page { max-width: 1160px; margin: 0 auto; display: grid; gap: 22px; }
+a { color: var(--s1); text-underline-offset: 2px; }
+a:focus-visible, button:focus-visible, input:focus-visible + label, summary:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--s1); outline-offset: 2px; border-radius: 4px;
+}
+h1, h2, h3 { margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+h1 { font-size: clamp(1.9rem, 1.3rem + 2.2vw, 2.7rem); font-weight: 700; line-height: 1.1; }
+h2 { font-size: 1.3rem; font-weight: 600; line-height: 1.25; }
+h3 { font-size: 0.95rem; font-weight: 600; }
+p { margin: 0; }
+.eyebrow { font: 500 0.72rem/1.3 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.prose { max-width: 68ch; color: var(--ink-2); }
+.prose strong { color: var(--ink); font-weight: 600; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* Header */
+.masthead { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 28px; align-items: end; padding-block: 6px 4px; }
+.masthead .lede { margin-top: 12px; font-size: 1.05rem; color: var(--ink-2); max-width: 60ch; }
+.facts { display: grid; gap: 8px; margin: 0; font-size: 0.86rem; color: var(--ink-2); }
+.facts div { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr); gap: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+.facts dt { font: 500 0.7rem/1.6 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.facts dd { margin: 0; }
+
+/* Summary tiles */
+.summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 16px 14px; display: grid; gap: 6px; align-content: start; }
+.tile .q { font-size: 0.82rem; color: var(--ink-2); }
+.tile .big { font-size: 1.75rem; font-weight: 600; line-height: 1.1; letter-spacing: -0.02em; }
+.tile .big small { font-size: 0.95rem; font-weight: 500; color: var(--ink-2); letter-spacing: 0; }
+.tile .note { font-size: 0.8rem; color: var(--muted); }
+
+/* Modules */
+.module { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px 22px 20px; display: grid; gap: 18px; min-width: 0; }
+.module-head { display: grid; gap: 8px; }
+.controls { display: flex; flex-wrap: wrap; gap: 14px 26px; align-items: end; padding: 14px 16px; background: var(--bg); border-radius: 8px; }
+.control { display: grid; gap: 6px; min-width: 0; }
+.control > .label { font: 500 0.7rem/1.3 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.slider-row { display: flex; align-items: center; gap: 12px; }
+.slider-row output { font-size: 1.15rem; font-weight: 600; min-width: 4.2ch; font-variant-numeric: tabular-nums; }
+input[type="range"] { width: min(320px, 62vw); accent-color: var(--s1); margin: 0; height: 28px; }
+.seg { position: relative; display: inline-flex; flex-wrap: wrap; border: 1px solid var(--axis); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg label { padding: 6px 12px; font-size: 0.85rem; cursor: pointer; color: var(--ink-2); border-left: 1px solid var(--axis); user-select: none; }
+.seg label:first-of-type { border-left: 0; }
+.seg input:checked + label { background: var(--ink); color: var(--surface); }
+.seg label:hover { background: var(--grid); }
+.seg input:checked + label:hover { background: var(--ink); }
+.btn { font: inherit; font-size: 0.85rem; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--axis); background: var(--surface); color: var(--ink-2); cursor: pointer; }
+.btn:hover { background: var(--grid); }
+.btn[aria-pressed="true"] { border-color: var(--ink); color: var(--ink); font-weight: 600; }
+.btn .swatch { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 7px; vertical-align: 0; }
+
+.readouts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.readouts.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.stat { background: var(--surface); padding: 12px 14px; display: grid; gap: 3px; align-content: start; min-width: 0; }
+.stat .k { font-size: 0.78rem; color: var(--ink-2); }
+.stat .v { font-size: 1.35rem; font-weight: 600; letter-spacing: -0.01em; line-height: 1.2; }
+.stat .v.good { color: var(--good); }
+.stat .v.bad { color: var(--bad); }
+.stat .d { font-size: 0.76rem; color: var(--muted); }
+
+.two { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 22px; }
+.two.even { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.chart-card { display: grid; gap: 8px; min-width: 0; align-content: start; }
+.chart-title { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 14px; align-items: baseline; }
+.chart-title h3 { font-size: 0.92rem; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 0.78rem; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.key-line { width: 16px; height: 0; border-top: 2px solid currentColor; }
+.key-line.dash { border-top-style: dashed; }
+.key-box { width: 10px; height: 10px; border-radius: 2px; }
+.key-dot { width: 9px; height: 9px; border-radius: 50%; }
+.chart { width: 100%; min-width: 0; position: relative; }
+.chart svg { display: block; overflow: visible; }
+.caption { font-size: 0.8rem; color: var(--muted); max-width: 80ch; }
+.callout { border-left: 3px solid var(--s1); padding: 4px 0 4px 14px; color: var(--ink-2); font-size: 0.9rem; max-width: 80ch; }
+.callout strong { color: var(--ink); }
+
+svg text { font-family: var(--font); }
+.tick { font-size: 11px; fill: var(--muted); font-variant-numeric: tabular-nums; }
+.axis-title { font-size: 11px; fill: var(--muted); }
+.ann { font-size: 11.5px; fill: var(--ink-2); font-weight: 500; }
+.ann-strong { font-size: 11.5px; fill: var(--ink); font-weight: 600; }
+.grid-line { stroke: var(--grid); stroke-width: 1; }
+.base-line { stroke: var(--axis); stroke-width: 1; }
+.hit { fill: transparent; cursor: crosshair; }
+.bar-mark { cursor: default; }
+.bar-mark:hover, .bar-mark:focus { opacity: 0.8; outline: none; }
+
+/* Tables */
+details { font-size: 0.85rem; }
+summary { cursor: pointer; color: var(--ink-2); width: fit-content; }
+.table-wrap { overflow-x: auto; margin-top: 10px; }
+table { border-collapse: collapse; width: 100%; font-size: 0.84rem; font-variant-numeric: tabular-nums; }
+th, td { padding: 7px 10px; text-align: right; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+th { font-weight: 600; color: var(--ink-2); font-size: 0.76rem; }
+th:first-child, td:first-child { text-align: left; }
+tr.sel td { background: var(--s1-soft); }
+
+/* Tooltip */
+#tip { position: fixed; z-index: 20; pointer-events: none; background: var(--surface); color: var(--ink); border: 1px solid var(--line); box-shadow: 0 6px 24px rgba(0, 0, 0, 0.14); border-radius: 8px; padding: 8px 10px; font-size: 0.8rem; display: grid; gap: 4px; max-width: 280px; }
+.tip-title { font-size: 0.74rem; color: var(--muted); }
+.tip-row { display: flex; align-items: center; gap: 8px; }
+.tip-row strong { font-variant-numeric: tabular-nums; }
+.tip-label { color: var(--ink-2); }
+.tip-key { width: 12px; height: 0; border-top: 2px solid; flex: none; }
+.tip-key.dash { border-top-style: dashed; }
+
+.lists { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 22px; }
+.lists ul { margin: 8px 0 0; padding-left: 1.1rem; color: var(--ink-2); display: grid; gap: 6px; font-size: 0.9rem; }
+.lists li strong { color: var(--ink); font-weight: 600; }
+footer { font-size: 0.8rem; color: var(--muted); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 24px; padding-top: 4px; }
+
+@media (max-width: 980px) {
+  .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .readouts, .readouts.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .readouts > .stat:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .two, .two.even, .lists { grid-template-columns: minmax(0, 1fr); }
+  .masthead { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 520px) {
+  body { font-size: 14.5px; }
+  .module { padding: 16px 14px; }
+  .summary { grid-template-columns: minmax(0, 1fr); }
+  .tile .big { font-size: 1.55rem; }
+  .facts div { grid-template-columns: 6rem minmax(0, 1fr); }
+  .stat .v { font-size: 1.2rem; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .chart path.series, .chart path.area { transition: opacity 0.15s ease; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="masthead">
+    <div>
+      <p class="eyebrow">Quant finance project · Lending Club consumer loans</p>
+      <h1>Credit Portfolio Risk</h1>
+      <p class="lede">A machine learning model predicts which borrowers will default. Its predictions feed a simulation of losses on a <span data-k="book_size"></span> loan book, which answers three questions a lender's risk committee asks: how much will we lose, how bad could it get, and which loans should we stop making.</p>
+    </div>
+    <dl class="facts">
+      <div><dt>Test book</dt><dd><span data-k="test_loans"></span> 36-month loans issued in 2015, all with known outcomes</dd></div>
+      <div><dt>Training</dt><dd>Loans issued 2012 to 2014. Nothing from 2015 is used to build a model.</dd></div>
+      <div><dt>Simulation</dt><dd>Every loan simulated individually, <span data-k="scenarios"></span> economic scenarios</dd></div>
+      <div><dt>Code</dt><dd><a href="https://github.com/Seangoh97/credit-portfolio-risk">github.com/Seangoh97/credit-portfolio-risk</a></dd></div>
+    </dl>
+  </header>
+
+  <section class="summary" aria-label="Summary">
+    <div class="tile">
+      <p class="q">Does the model beat the lender's own risk grade?</p>
+      <p class="big"><span data-k="auc_main"></span> <small>vs <span data-k="auc_grade"></span> AUC</small></p>
+      <p class="note">Ranking of 2015 borrowers by default risk. Gain <span data-k="auc_gain"></span>, 95% interval <span data-k="auc_ci"></span>.</p>
+    </div>
+    <div class="tile">
+      <p class="q">How much did the 2015 book lose?</p>
+      <p class="big"><span data-k="realised"></span> <small>vs <span data-k="expected"></span> expected</small></p>
+      <p class="note">Lifetime principal lost. Loans defaulted more often than in earlier years.</p>
+    </div>
+    <div class="tile">
+      <p class="q">How much capital does it need?</p>
+      <p class="big"><span data-k="cap_data"></span> <small>to</small> <span data-k="cap_ref"></span></p>
+      <p class="note">Enough to cover a 1-in-1,000 loss. The range comes almost entirely from one assumption: how strongly defaults move together.</p>
+    </div>
+    <div class="tile">
+      <p class="q">What is the model worth?</p>
+      <p class="big"><span data-k="cut_loss"></span> <small>losses avoided</small></p>
+      <p class="note">Declining the riskiest 10% costs <span data-k="cut_profit"></span> of profit. The same cut by the lender's grade costs <span data-k="cut_profit_grade"></span>.</p>
+    </div>
+  </section>
+
+  <!-- 1. Approval policy -->
+  <section class="module" id="policy" aria-labelledby="policy-h">
+    <div class="module-head">
+      <p class="eyebrow">Approval policy</p>
+      <h2 id="policy-h">What if the lender had turned away its riskiest applicants?</h2>
+      <p class="prose">Pick how many 2015 applicants to decline and how to rank them. Every figure is what those loans actually paid or lost, so this is a replay of history rather than a forecast.</p>
+    </div>
+    <div class="controls">
+      <div class="control">
+        <span class="label" id="share-label">Applicants declined</span>
+        <div class="slider-row">
+          <input type="range" id="share" min="0" max="30" step="1" value="10" aria-labelledby="share-label" aria-describedby="share-out">
+          <output id="share-out" for="share"></output>
+        </div>
+      </div>
+      <div class="control">
+        <span class="label" id="rank-label">Ranked by</span>
+        <div class="seg" role="radiogroup" aria-labelledby="rank-label">
+          <input type="radio" name="rank" id="rank-gbm" value="gbm" checked><label for="rank-gbm">Gradient boosting</label>
+          <input type="radio" name="rank" id="rank-pit" value="pit"><label for="rank-pit">Point-in-time model</label>
+          <input type="radio" name="rank" id="rank-grade" value="grade"><label for="rank-grade">Lending Club grade</label>
+        </div>
+      </div>
+    </div>
+    <div class="readouts" aria-live="polite">
+      <div class="stat"><span class="k">Change in profit</span><span class="v" id="p-profit"></span><span class="d" id="p-profit-d"></span></div>
+      <div class="stat"><span class="k">Losses avoided</span><span class="v" id="p-loss"></span><span class="d" id="p-loss-d"></span></div>
+      <div class="stat"><span class="k">Lending given up</span><span class="v" id="p-lend"></span><span class="d" id="p-lend-d"></span></div>
+      <div class="stat"><span class="k">Default rate of loans kept</span><span class="v" id="p-dr"></span><span class="d" id="p-dr-d"></span></div>
+      <div class="stat"><span class="k">Capital released</span><span class="v" id="p-cap"></span><span class="d" id="p-cap-d"></span></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">
+        <div class="seg" role="radiogroup" aria-label="Chart measure">
+          <input type="radio" name="metric" id="m-profit" value="profit" checked><label for="m-profit">Profit</label>
+          <input type="radio" name="metric" id="m-loss" value="loss"><label for="m-loss">Losses avoided</label>
+          <input type="radio" name="metric" id="m-cap" value="cap"><label for="m-cap">Capital needed</label>
+        </div>
+        <div class="legend" aria-hidden="true">
+          <span style="color:var(--s1)"><i class="key-line"></i><span style="color:var(--ink-2)">Gradient boosting</span></span>
+          <span style="color:var(--s2)"><i class="key-line dash"></i><span style="color:var(--ink-2)">Point-in-time model</span></span>
+          <span style="color:var(--s-neutral)"><i class="key-line"></i><span style="color:var(--ink-2)">Lending Club grade</span></span>
+        </div>
+      </div>
+      <div class="chart" id="policy-chart" role="img" aria-label="Line chart of the selected measure against the share of applicants declined, for three ways of ranking applicants."></div>
+      <p class="caption" id="policy-caption"></p>
+      <details>
+        <summary>Show the numbers</summary>
+        <div class="table-wrap"><table id="policy-table"></table></div>
+      </details>
+    </div>
+    <p class="callout" id="rule-callout"></p>
+  </section>
+
+  <!-- 2. Capital and correlation -->
+  <section class="module" id="capital" aria-labelledby="capital-h">
+    <div class="module-head">
+      <p class="eyebrow">Loss distribution and capital</p>
+      <h2 id="capital-h">How bad could a year get? It depends on how defaults move together.</h2>
+      <p class="prose">The expected loss stays the same whatever you choose here. The asset correlation decides how often bad outcomes bunch together, which sets how wide the range of possible losses is and how much capital the lender must hold. The project estimates it from 30 quarterly loan vintages; the Basel formula for retail lending gives a much higher value.</p>
+    </div>
+    <div class="controls">
+      <div class="control">
+        <span class="label" id="rho-label">Asset correlation</span>
+        <div class="slider-row">
+          <input type="range" id="rho" min="0" max="1" step="1" value="0" aria-labelledby="rho-label" aria-describedby="rho-out">
+          <output id="rho-out" for="rho"></output>
+        </div>
+      </div>
+      <div class="control">
+        <span class="label">Jump to</span>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <button class="btn" type="button" id="preset-data"><span class="swatch" style="background:var(--s1)"></span>Estimated from the data</button>
+          <button class="btn" type="button" id="preset-ref"><span class="swatch" style="background:var(--s2)"></span>Basel reference</button>
+        </div>
+      </div>
+    </div>
+    <div class="readouts" aria-live="polite">
+      <div class="stat"><span class="k">Expected loss</span><span class="v" id="c-el"></span><span class="d">Same at every correlation</span></div>
+      <div class="stat"><span class="k">1-in-100 loss</span><span class="v" id="c-v99"></span><span class="d" id="c-v99-d"></span></div>
+      <div class="stat"><span class="k">1-in-1,000 loss</span><span class="v" id="c-v999"></span><span class="d" id="c-v999-d"></span></div>
+      <div class="stat"><span class="k">Capital to hold (99.9%)</span><span class="v" id="c-cap"></span><span class="d" id="c-cap-d"></span></div>
+      <div class="stat"><span class="k">The actual 2015 loss</span><span class="v" id="c-pct"></span><span class="d" id="c-pct-d"></span></div>
+    </div>
+    <div class="two">
+      <div class="chart-card">
+        <div class="chart-title"><h3>Range of possible lifetime losses on the 2015 book</h3></div>
+        <div class="chart" id="density-chart" role="img" aria-label="Probability distribution of the 2015 book's lifetime credit loss at the selected correlation, with the expected loss, the actual loss and the 1-in-1,000 loss marked."></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title"><h3>Capital needed at each correlation</h3>
+          <div class="legend" aria-hidden="true">
+            <span><i class="key-dot" style="background:var(--s1)"></i>Data estimate</span>
+            <span><i class="key-dot" style="background:var(--s2)"></i>Basel</span>
+            <span><i class="key-box" style="background:var(--band)"></i>95% interval of estimate</span>
+          </div>
+        </div>
+        <div class="chart" id="capital-chart" role="img" aria-label="Line chart of economic capital at 99.9% against asset correlation."></div>
+      </div>
+    </div>
+    <p class="caption" id="capital-caption"></p>
+    <details>
+      <summary>Show the numbers</summary>
+      <div class="table-wrap"><table id="rho-table"></table></div>
+    </details>
+  </section>
+
+  <!-- 3. Models -->
+  <section class="module" id="models" aria-labelledby="models-h">
+    <div class="module-head">
+      <p class="eyebrow">Default model</p>
+      <h2 id="models-h">The model ranks borrowers better, and most of the gain survives a strict test</h2>
+      <p class="prose" id="models-prose"></p>
+    </div>
+    <div class="two even">
+      <div class="chart-card">
+        <div class="chart-title"><h3>Ranking power on 2015 loans (AUC)</h3>
+          <div class="legend" aria-hidden="true">
+            <span><i class="key-dot" style="background:var(--s1)"></i>Trained on final outcomes</span>
+            <span><i class="key-dot" style="background:var(--s2)"></i>Point-in-time</span>
+            <span><i class="key-dot" style="background:var(--s-neutral)"></i>Benchmark</span>
+          </div>
+        </div>
+        <div class="chart" id="auc-chart" role="img" aria-label="Dot plot of AUC on 2015 loans for six model variants, with the Lending Club grade as a reference line."></div>
+        <p class="caption">AUC is the chance that a randomly chosen defaulter is ranked riskier than a randomly chosen borrower who repaid. 0.5 is a coin toss.</p>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title"><h3>Predicted vs actual default rate, by risk decile</h3>
+          <div class="legend" aria-hidden="true">
+            <span style="color:var(--s1)"><i class="key-line"></i><span style="color:var(--ink-2)">Gradient boosting</span></span>
+            <span style="color:var(--s-neutral)"><i class="key-line dash"></i><span style="color:var(--ink-2)">Perfect calibration</span></span>
+          </div>
+        </div>
+        <div class="chart" id="calib-chart" role="img" aria-label="Scatter of predicted against actual default rate for ten risk deciles of 2015 loans."></div>
+        <p class="caption" id="calib-caption"></p>
+      </div>
+    </div>
+    <div class="table-wrap"><table id="model-table"></table></div>
+  </section>
+
+  <!-- 4. Risk by grade and drivers -->
+  <section class="module" id="grades" aria-labelledby="grades-h">
+    <div class="module-head">
+      <p class="eyebrow">Where the risk sits</p>
+      <h2 id="grades-h">Middle grades carry far more of the risk than of the lending</h2>
+      <p class="prose" id="grades-prose"></p>
+    </div>
+    <div class="two even">
+      <div class="chart-card">
+        <div class="chart-title"><h3>Share of the 2015 book, by Lending Club grade</h3>
+          <div class="legend" aria-hidden="true">
+            <span><i class="key-box" style="background:var(--s-neutral)"></i>Lending</span>
+            <span><i class="key-box" style="background:var(--s1)"></i>Expected loss</span>
+            <span><i class="key-box" style="background:var(--s2)"></i>Tail loss</span>
+          </div>
+        </div>
+        <div class="chart" id="grade-chart" role="img" aria-label="Grouped bar chart of each grade's share of lending, expected loss and tail loss."></div>
+        <p class="caption">Tail loss: each grade's share of losses in the worst 1% of simulated outcomes, at the Basel reference correlation.</p>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title"><h3>What drives the model's predictions</h3></div>
+        <div class="chart" id="driver-chart" role="img" aria-label="Bar chart of the twelve inputs with the largest average effect on predicted default risk."></div>
+        <p class="caption">Average size of each input's effect on a prediction (mean absolute SHAP value, log-odds). Geography is excluded from the model on purpose.</p>
+      </div>
+    </div>
+    <div class="table-wrap"><table id="grade-table"></table></div>
+  </section>
+
+  <section class="module" aria-labelledby="method-h">
+    <div class="module-head">
+      <p class="eyebrow">Method and limits</p>
+      <h2 id="method-h">How the numbers were produced, and what they cannot tell you</h2>
+    </div>
+    <div class="lists">
+      <div>
+        <h3>Method</h3>
+        <ul>
+          <li><strong>Default model.</strong> LightGBM on 65 inputs known when the loan was made, compared with a logistic regression and the lender's sub-grade. All three are recalibrated on 2014 loans the same way.</li>
+          <li><strong>Loss if default.</strong> Share of the loan lost when it defaults, by grade, from 2012 to 2014 defaults.</li>
+          <li><strong>Correlation.</strong> One-factor (Vasicek) model fitted by maximum likelihood to default counts by vintage quarter and grade.</li>
+          <li><strong>Loss distribution.</strong> Monte Carlo simulation of every loan, cross-checked against a semi-analytic method and the closed-form large-portfolio formula.</li>
+          <li><strong>Checks.</strong> <span data-k="checks"></span> numerical self-checks pass on every run, 62 unit tests pass, and two independent runs give byte-identical results.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Limits</h3>
+        <ul>
+          <li><strong>Approved loans only.</strong> There are no outcomes for rejected applicants, so the analysis covers tightening credit, not loosening it.</li>
+          <li><strong>One test year.</strong> The actual 2015 loss is a single observation, not a statistical backtest.</li>
+          <li><strong>Fragile correlation estimate.</strong> Vintages overlap in time and the sample has few loans that lived through a recession.</li>
+          <li><strong>Simple profit.</strong> Cash in minus cash out, with no discounting or funding and servicing costs.</li>
+          <li><strong>Not regulatory capital.</strong> The Basel correlation is a one-year reference applied to lifetime losses.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span>Data: Lending Club accepted loans 2007 to 2018 (public Kaggle dataset). Figures are lifetime cash flows, undiscounted.</span>
+    <span>Full write-up and code: <a href="https://github.com/Seangoh97/credit-portfolio-risk">GitHub</a></span>
+  </footer>
+</div>
+
+<div id="tip" hidden></div>
+
+<script>
+const D = /*__DASHBOARD_DATA__*/null;
+
+/* ---------- helpers ---------- */
+const $ = (s, root = document) => root.querySelector(s);
+const NS = "http://www.w3.org/2000/svg";
+function node(tag, attrs = {}, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function label(parent, x, y, text, cls, anchor = "start", extra = {}) {
+  const t = node("text", { x, y, class: cls, "text-anchor": anchor, ...extra }, parent);
+  t.textContent = text;
+  return t;
+}
+const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+function scale(d0, d1, r0, r1) {
+  const f = (v) => r0 + ((v - d0) / (d1 - d0)) * (r1 - r0);
+  f.invert = (p) => d0 + ((p - r0) / (r1 - r0)) * (d1 - d0);
+  return f;
+}
+function niceTicks(lo, hi, n = 5) {
+  const raw = (hi - lo) / n;
+  const mag = 10 ** Math.floor(Math.log10(raw));
+  const err = raw / mag;
+  const step = (err >= 7.5 ? 10 : err >= 3.5 ? 5 : err >= 1.5 ? 2 : 1) * mag;
+  const out = [];
+  for (let v = Math.ceil(lo / step - 1e-9) * step; v <= hi + step * 1e-6; v += step) out.push(+v.toFixed(10));
+  // always end on a tick at or above the highest value, so marks never run past the axis
+  if (out.length === 0 || out[out.length - 1] < hi - step * 1e-6) out.push(+((out.length ? out[out.length - 1] : Math.floor(lo / step) * step) + step).toFixed(10));
+  return out;
+}
+const MINUS = "−";
+const money = (v, d = 0) => (v < 0 ? MINUS : "") + "$" + Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d }) + "m";
+const signedMoney = (v, d = 1) => {
+  const r = +v.toFixed(d);
+  return (r > 0 ? "+" : r < 0 ? MINUS : "") + "$" + Math.abs(r).toFixed(d) + "m";
+};
+const pct = (v, d = 0) => (v * 100).toFixed(d) + "%";
+const signedPct = (v, d = 1) => {
+  const r = +(v * 100).toFixed(d);
+  return (r > 0 ? "+" : r < 0 ? MINUS : "") + Math.abs(r).toFixed(d) + "%";
+};
+const billions = (vm) => "$" + (vm / 1000).toFixed(1) + "bn";
+const ordinal = (n) => {
+  const s = ["th", "st", "nd", "rd"], v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+};
+const rhoText = (r) => (r * 100).toFixed(r < 0.01 ? 2 : 1) + "%";
+// Where the actual loss sits in the distribution; past the 99.5th the rounded ordinal would mislead.
+const percentileText = (p) => p >= 0.999 ? "Beyond the 99.9th" : p >= 0.995 ? "Beyond the 99.5th" : ordinal(Math.round(p * 100));
+
+/* ---------- tooltip ---------- */
+const tip = $("#tip");
+function showTip(evt, title, rows) {
+  tip.replaceChildren();
+  if (title) {
+    const h = document.createElement("div");
+    h.className = "tip-title";
+    h.textContent = title;
+    tip.appendChild(h);
+  }
+  for (const r of rows) {
+    const row = document.createElement("div");
+    row.className = "tip-row";
+    if (r.color) {
+      const k = document.createElement("span");
+      k.className = "tip-key" + (r.dash ? " dash" : "");
+      k.style.borderTopColor = r.color;
+      row.appendChild(k);
+    }
+    const v = document.createElement("strong");
+    v.textContent = r.value;
+    const l = document.createElement("span");
+    l.className = "tip-label";
+    l.textContent = r.label;
+    row.append(v, l);
+    tip.appendChild(row);
+  }
+  tip.hidden = false;
+  let cx = evt.clientX, cy = evt.clientY;
+  if (cx === undefined || (cx === 0 && cy === 0 && evt.target && evt.target.getBoundingClientRect)) {
+    const b = evt.target.getBoundingClientRect();
+    cx = b.left + b.width / 2;
+    cy = b.top;
+  }
+  const w = tip.offsetWidth, h = tip.offsetHeight, pad = 14;
+  let x = cx + pad, y = cy + pad;
+  if (x + w > innerWidth - 8) x = cx - w - pad;
+  if (y + h > innerHeight - 8) y = cy - h - pad;
+  tip.style.left = Math.max(8, x) + "px";
+  tip.style.top = Math.max(8, y) + "px";
+}
+const hideTip = () => { tip.hidden = true; };
+
+/* ---------- chart frame ---------- */
+function frame(box, height, m) {
+  box.replaceChildren();
+  const W = Math.max(260, Math.floor(box.clientWidth));
+  const svg = node("svg", { width: W, height, viewBox: `0 0 ${W} ${height}` }, box);
+  return { svg, W, H: height, x0: m.l, x1: W - m.r, y0: height - m.b, y1: m.t };
+}
+function yAxis(f, sy, ticks, fmt) {
+  for (const t of ticks) {
+    node("line", { x1: f.x0, x2: f.x1, y1: sy(t), y2: sy(t), class: "grid-line" }, f.svg);
+    label(f.svg, f.x0 - 8, sy(t) + 4, fmt(t), "tick", "end");
+  }
+}
+function xAxis(f, sx, ticks, fmt, title) {
+  node("line", { x1: f.x0, x2: f.x1, y1: f.y0, y2: f.y0, class: "base-line" }, f.svg);
+  for (const t of ticks) label(f.svg, sx(t), f.y0 + 16, fmt(t), "tick", "middle");
+  if (title) label(f.svg, (f.x0 + f.x1) / 2, f.y0 + 34, title, "axis-title", "middle");
+}
+function pathFrom(xs, ys) {
+  return xs.map((x, i) => (i ? "L" : "M") + x.toFixed(1) + "," + ys[i].toFixed(1)).join("");
+}
+function barPath(x, y, w, h, r, dir = "up") {
+  r = Math.min(r, w / 2, Math.abs(h));
+  if (h <= 0.5) return `M${x},${y}h${w}`;
+  if (dir === "up") return `M${x},${y + h}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h}Z`;
+  // right-pointing bar: x is the baseline, w the length, h the thickness
+  return `M${x},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h - r}Q${x + w},${y + h} ${x + w - r},${y + h}H${x}Z`;
+}
+
+/* ---------- static text from the data ---------- */
+const P = D.policy;
+const idxOfShare = (s) => P.shares.findIndex((v) => Math.abs(v - s) < 1e-6);
+const rank = (key) => P.rankings.find((r) => r.key === key);
+const model = (name) => D.models.find((m) => m.name === name);
+const tagRow = (tag) => D.rho.findIndex((r) => r.tag === tag);
+function fillStatic() {
+  const g = rank("gbm"), lc = rank("grade"), i10 = idxOfShare(0.10);
+  const text = {
+    book_size: billions(D.portfolio.funded),
+    test_loans: D.meta.loans_test.toLocaleString("en-US"),
+    scenarios: D.meta.scenarios.toLocaleString("en-US"),
+    auc_main: model("Gradient boosting").auc.toFixed(3),
+    auc_grade: model("LC sub-grade").auc.toFixed(3),
+    auc_gain: "+" + D.gain.difference.toFixed(3),
+    auc_ci: D.gain.ci_low.toFixed(3) + " to " + D.gain.ci_high.toFixed(3),
+    realised: money(D.portfolio.realised_loss),
+    expected: money(D.portfolio.expected_loss),
+    cap_data: money(D.monte_carlo.data.cap999),
+    cap_ref: money(D.monte_carlo.reference.cap999),
+    cut_loss: money(g.principal_loss[0] - g.principal_loss[i10]),
+    cut_profit: money(g.net_pnl[0] - g.net_pnl[i10], 1),
+    cut_profit_grade: money(lc.net_pnl[0] - lc.net_pnl[i10], 1),
+    checks: String(D.meta.checks),
+  };
+  document.querySelectorAll("[data-k]").forEach((e) => {
+    const v = text[e.dataset.k];
+    if (v === undefined) throw new Error("missing text key " + e.dataset.k);
+    e.textContent = v;
+  });
+
+  const r = D.rule;
+  $("#rule-callout").replaceChildren();
+  const strong = document.createElement("strong");
+  strong.textContent = "A rule with no chosen percentage: ";
+  $("#rule-callout").append(strong, document.createTextNode(
+    `decline any loan the model expects to lose money on. It turns away ${pct(r.declined_share, 1)} of applicants (${money(r.funded_declined)} of lending). ` +
+    `Those loans defaulted ${pct(r.default_rate, 1)} of the time and lost ${money(-r.net_pnl, 1)} after interest. Lending Club's pricing covered expected losses for nearly every borrower, so the value lies in ranking marginal loans better.`));
+
+  const byKind = (k) => D.variants.filter((x) => x.kind === k);
+  const pit = byKind("pit");
+  $("#models-prose").textContent =
+    `Lending Club's grade is already a credit model, so beating it at all is the result. The main model learns from the final outcome of 2012-13 loans, which a lender could not have known in January 2015. ` +
+    `Trained only on what was visible by then (early delinquency), it still scores ${pit[0].auc.toFixed(3)}, ahead of the grade's ${model("LC sub-grade").auc.toFixed(3)}. ` +
+    `Trained only on loans that had fully matured, it drops to ${pit[1].auc.toFixed(3)}, so the advantage depends on recent performance data.`;
+
+  const pf = D.portfolio;
+  $("#calib-caption").textContent =
+    `The ranking held: actual default rates rise across all ten deciles. The level did not: 2015 loans defaulted ${pct(pf.default_rate, 1)} of the time against ${pct(pf.mean_pd, 1)} predicted, ` +
+    `after ${pct(D.meta.default_rate.train, 1)} for 2012-13 loans and ${pct(D.meta.default_rate.calib, 1)} for 2014. That drift explains ${money(pf.gap_default)} of the ${money(pf.gap)} forecast miss.`;
+
+  const ce = D.grades.filter((x) => "CDE".includes(x.grade));
+  const sum = (arr, k) => arr.reduce((a, b) => a + b[k], 0);
+  const A = D.grades.find((x) => x.grade === "A");
+  $("#grades-prose").textContent =
+    `Grades C to E are ${pct(sum(ce, "share_funded"))} of lending but ${pct(sum(ce, "share_el"))} of expected loss and ${pct(sum(ce, "share_tail"))} of tail loss. ` +
+    `Grade A shows the reverse on a smaller scale: ${pct(A.share_el)} of expected loss but ${pct(A.share_tail)} of tail loss, because in a bad year safe borrowers deteriorate proportionally more.`;
+}
+
+/* ---------- tables ---------- */
+function table(el, head, rows, selIndex = -1) {
+  el.replaceChildren();
+  const thead = el.createTHead().insertRow();
+  head.forEach((h) => { const th = document.createElement("th"); th.textContent = h; thead.appendChild(th); });
+  const tb = el.createTBody();
+  rows.forEach((r, i) => {
+    const tr = tb.insertRow();
+    if (i === selIndex) tr.className = "sel";
+    r.forEach((c) => { tr.insertCell().textContent = c; });
+  });
+}
+
+/* ---------- 1. approval policy ---------- */
+const state = { share: idxOfShare(0.10), rank: "gbm", metric: "profit", rho: tagRow("data") };
+const RANK_STYLE = {
+  gbm: { color: "--s1", dash: false },
+  pit: { color: "--s2", dash: true },
+  grade: { color: "--s-neutral", dash: false },
+};
+function metricSeries(r, metric) {
+  if (metric === "profit") return r.net_pnl;
+  if (metric === "loss") return r.principal_loss.map((v) => r.principal_loss[0] - v);
+  return r.cap_ref;
+}
+const METRIC_TEXT = {
+  profit: { axis: "Lifetime net profit", fmt: (v) => money(v, 0) },
+  loss: { axis: "Principal losses avoided", fmt: (v) => money(v, 0) },
+  cap: { axis: "Capital at 99.9%, Basel correlation", fmt: (v) => money(v, 0) },
+};
+
+function updatePolicy() {
+  const r = rank(state.rank), i = state.share;
+  $("#share-out").textContent = pct(P.shares[i]);
+  const setStat = (id, v, d, tone) => {
+    const e = $("#" + id);
+    e.textContent = v;
+    e.className = "v" + (tone ? " " + tone : "");
+    $("#" + id + "-d").textContent = d;
+  };
+  const dp = r.net_pnl[i] - r.net_pnl[0];
+  const dpr = +dp.toFixed(1);
+  setStat("p-profit", signedMoney(dp, 1), `${signedPct(dp / r.net_pnl[0])} on ${money(r.net_pnl[0], 1)} earned with no cut`, dpr > 0 ? "good" : dpr < 0 ? "bad" : "");
+  const dl = r.principal_loss[0] - r.principal_loss[i];
+  setStat("p-loss", money(dl, 1), `${pct(dl / r.principal_loss[0])} of ${money(r.principal_loss[0])} lost with no cut`);
+  const df = r.funded[0] - r.funded[i];
+  setStat("p-lend", money(df), `${pct(df / r.funded[0], 1)} of the ${billions(r.funded[0])} lent; ${(r.loans[0] - r.loans[i]).toLocaleString("en-US")} loans`);
+  setStat("p-dr", pct(r.default_rate[i], 1), `${pct(r.default_rate[0], 1)} with no cut`);
+  const cuts = [1 - r.cap_ref[i] / r.cap_ref[0], 1 - r.cap_data[i] / r.cap_data[0]].sort((a, b) => a - b);
+  const capText = pct(cuts[0]) === pct(cuts[1]) ? pct(cuts[0]) : `${pct(cuts[0])} to ${pct(cuts[1])}`;
+  setStat("p-cap", capText, `${money(r.cap_ref[i])} needed at the Basel correlation, ${money(r.cap_data[i])} at the data estimate`);
+
+  $("#policy-caption").textContent =
+    `Profit is cash received minus cash lent over the loans' lives, before funding and servicing costs. With no cut the 2015 book earned ${money(P.book.net_pnl, 1)} (${pct(P.book.return, 2)} of the amount lent). ` +
+    `Capital is always measured with the main model's default probabilities, so the three rankings are compared on the same footing.`;
+
+  const rows = P.shares.map((s, k) => [pct(s), signedMoney(r.net_pnl[k] - r.net_pnl[0], 1), money(r.principal_loss[0] - r.principal_loss[k], 1),
+    money(r.funded[0] - r.funded[k]), pct(r.default_rate[k], 1), money(r.cap_ref[k]), money(r.cap_data[k])]);
+  table($("#policy-table"), ["Declined (" + r.label + ")", "Profit change", "Losses avoided", "Lending given up", "Default rate kept", "Capital, Basel", "Capital, data"], rows, i);
+  drawPolicy();
+}
+
+function drawPolicy() {
+  const box = $("#policy-chart");
+  const narrow = box.clientWidth < 520;
+  const f = frame(box, narrow ? 260 : 320, { l: 58, r: 16, t: 14, b: 44 });
+  const xs = P.shares;
+  const sx = scale(0, xs[xs.length - 1], f.x0, f.x1);
+  const series = P.rankings.map((r) => ({ r, ys: metricSeries(r, state.metric) }));
+  let lo = Math.min(...series.flatMap((s) => s.ys)), hi = Math.max(...series.flatMap((s) => s.ys));
+  const padv = (hi - lo) * 0.08 || 1;
+  lo -= padv; hi += padv;
+  if (state.metric !== "profit") lo = Math.min(lo, 0);
+  const ticks = niceTicks(lo, hi, narrow ? 4 : 5);
+  lo = Math.min(lo, ticks[0]); hi = Math.max(hi, ticks[ticks.length - 1]);
+  const sy = scale(lo, hi, f.y0, f.y1);
+  yAxis(f, sy, ticks, METRIC_TEXT[state.metric].fmt);
+  xAxis(f, sx, [0, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30], (v) => pct(v), "Share of applicants declined, riskiest first");
+  label(f.svg, f.x0, f.y1 - 2, METRIC_TEXT[state.metric].axis, "axis-title", "start", { dy: "-2" });
+
+  if (state.metric === "profit") {
+    const y = sy(series[0].ys[0]);
+    node("line", { x1: f.x0, x2: f.x1, y1: y, y2: y, stroke: cssVar("--axis"), "stroke-width": 1, "stroke-dasharray": "4 4" }, f.svg);
+    label(f.svg, f.x1, y - 6, "No cut", "tick", "end");
+  }
+  // draw the selected ranking last so it sits on top
+  const order = [...series].sort((a, b) => (a.r.key === state.rank) - (b.r.key === state.rank));
+  for (const s of order) {
+    const st = RANK_STYLE[s.r.key], sel = s.r.key === state.rank;
+    node("path", {
+      d: pathFrom(xs.map(sx), s.ys.map(sy)), fill: "none", stroke: cssVar(st.color),
+      "stroke-width": sel ? 2.75 : 2, "stroke-dasharray": st.dash ? "6 4" : "none",
+      opacity: sel ? 1 : 0.55, class: "series", "stroke-linejoin": "round", "stroke-linecap": "round",
+    }, f.svg);
+  }
+  // selection marker
+  const xi = sx(xs[state.share]);
+  node("line", { x1: xi, x2: xi, y1: f.y1, y2: f.y0, stroke: cssVar("--ink"), "stroke-width": 1, opacity: 0.35 }, f.svg);
+  for (const s of order) {
+    const sel = s.r.key === state.rank;
+    node("circle", { cx: xi, cy: sy(s.ys[state.share]), r: sel ? 5.5 : 4, fill: cssVar(RANK_STYLE[s.r.key].color), stroke: cssVar("--surface"), "stroke-width": 2 }, f.svg);
+  }
+  const selS = series.find((s) => s.r.key === state.rank);
+  const vy = sy(selS.ys[state.share]);
+  const right = xi > (f.x0 + f.x1) / 2;
+  label(f.svg, xi + (right ? -10 : 10), vy - 10, METRIC_TEXT[state.metric].fmt(selS.ys[state.share]), "ann-strong", right ? "end" : "start");
+
+  // hover layer
+  const cross = node("line", { y1: f.y1, y2: f.y0, stroke: cssVar("--muted"), "stroke-width": 1, visibility: "hidden" }, f.svg);
+  const hit = node("rect", { x: f.x0, y: f.y1, width: f.x1 - f.x0, height: f.y0 - f.y1, class: "hit" }, f.svg);
+  const nearest = (evt) => {
+    const b = f.svg.getBoundingClientRect();
+    const v = sx.invert(evt.clientX - b.left);
+    return Math.max(0, Math.min(xs.length - 1, Math.round(v / 0.01)));
+  };
+  hit.addEventListener("pointermove", (evt) => {
+    const k = nearest(evt);
+    cross.setAttribute("x1", sx(xs[k])); cross.setAttribute("x2", sx(xs[k])); cross.setAttribute("visibility", "visible");
+    showTip(evt, `${pct(xs[k])} declined · ${METRIC_TEXT[state.metric].axis.toLowerCase()}`,
+      series.map((s) => ({ value: METRIC_TEXT[state.metric].fmt(s.ys[k]), label: s.r.label, color: cssVar(RANK_STYLE[s.r.key].color), dash: RANK_STYLE[s.r.key].dash })));
+  });
+  hit.addEventListener("pointerleave", () => { cross.setAttribute("visibility", "hidden"); hideTip(); });
+  hit.addEventListener("click", (evt) => {
+    state.share = nearest(evt);
+    $("#share").value = Math.round(xs[state.share] * 100);
+    hideTip();
+    updatePolicy();
+  });
+}
+
+/* ---------- 2. capital and correlation ---------- */
+const lossGrid = D.loss_grid;
+function survival(density) {
+  // P(loss >= x) on the grid, by the trapezoid rule, normalised to the grid's total mass
+  const n = density.length, cum = new Array(n).fill(0);
+  for (let k = 1; k < n; k++) cum[k] = cum[k - 1] + 0.5 * (density[k] + density[k - 1]) * (lossGrid[k] - lossGrid[k - 1]);
+  const total = cum[n - 1];
+  return cum.map((c) => 1 - c / total);
+}
+function updateCapital() {
+  const row = D.rho[state.rho];
+  const tagText = row.tag === "data" ? " (data estimate)" : row.tag === "reference" ? " (Basel)" : "";
+  $("#rho-out").textContent = rhoText(row.rho);
+  $("#rho").setAttribute("aria-valuetext", rhoText(row.rho) + tagText);
+  $("#preset-data").setAttribute("aria-pressed", String(row.tag === "data"));
+  $("#preset-ref").setAttribute("aria-pressed", String(row.tag === "reference"));
+  $("#c-el").textContent = money(row.el);
+  $("#c-v99").textContent = money(row.var99);
+  $("#c-v99-d").textContent = `${signedMoney(row.var99 - row.el, 0)} above expected`;
+  $("#c-v999").textContent = money(row.var999);
+  $("#c-v999-d").textContent = `${signedMoney(row.var999 - row.el, 0)} above expected`;
+  $("#c-cap").textContent = money(row.cap999);
+  $("#c-cap-d").textContent = `${pct(row.cap999 / D.portfolio.funded, 1)} of the amount lent`;
+  $("#c-pct").textContent = percentileText(row.pct) + " percentile";
+  const oneIn = 1 / Math.max(1 - row.pct, 1e-9);
+  $("#c-pct-d").textContent = oneIn >= 1000 ? "a worse than 1-in-1,000 outcome" : `a loss this large happens about 1 time in ${Math.round(oneIn)}`;
+
+  const mcd = D.monte_carlo.data, mcr = D.monte_carlo.reference;
+  $("#capital-caption").textContent =
+    `This explorer uses the semi-analytic method so it can respond instantly. At the two marked settings the full loan-by-loan simulation gives capital of ${money(mcd.cap999)} and ${money(mcr.cap999)}; the two methods agree within 1%. ` +
+    `The data estimate (${rhoText(D.correlation.rho_data)}, 95% interval ${rhoText(D.correlation.ci_low)} to ${rhoText(D.correlation.ci_high)}) puts 2015's actual loss far into the tail, which suggests it is too low: 2015 was not a recession year.`;
+
+  table($("#rho-table"), ["Correlation", "Expected loss", "1-in-100 loss", "1-in-1,000 loss", "Capital (99.9%)", "Actual 2015 loss, percentile"],
+    D.rho.map((x) => [rhoText(x.rho) + (x.tag === "data" ? " (data)" : x.tag === "reference" ? " (Basel)" : ""), money(x.el), money(x.var99), money(x.var999), money(x.cap999), percentileText(x.pct)]),
+    state.rho);
+  drawDensity();
+  drawCapitalCurve();
+}
+
+function drawDensity() {
+  const box = $("#density-chart");
+  const narrow = window.innerWidth < 700;
+  const f = frame(box, narrow ? 250 : 300, { l: 14, r: 16, t: 50, b: 44 });
+  const row = D.rho[state.rho], dens = D.density[state.rho];
+  const sx = scale(0, lossGrid[lossGrid.length - 1], f.x0, f.x1);
+  const ymax = Math.max(...dens) * 1.05;
+  const sy = scale(0, ymax, f.y0, f.y1);
+  for (const t of niceTicks(0, lossGrid[lossGrid.length - 1], narrow ? 4 : 8))
+    node("line", { x1: sx(t), x2: sx(t), y1: f.y1, y2: f.y0, class: "grid-line" }, f.svg);
+  xAxis(f, sx, niceTicks(0, lossGrid[lossGrid.length - 1], narrow ? 4 : 8), (v) => money(v), "Lifetime credit loss");
+
+  const X = lossGrid.map(sx), Y = dens.map(sy);
+  node("path", { d: pathFrom(X, Y) + `L${X[X.length - 1]},${f.y0}L${X[0]},${f.y0}Z`, fill: cssVar("--s1-soft"), class: "area" }, f.svg);
+  // shade outcomes at least as bad as the actual 2015 loss
+  const real = D.portfolio.realised_loss;
+  const k0 = lossGrid.findIndex((v) => v >= real);
+  if (k0 > 0) {
+    const yReal = sy(dens[k0 - 1] + (dens[k0] - dens[k0 - 1]) * (real - lossGrid[k0 - 1]) / (lossGrid[k0] - lossGrid[k0 - 1]));
+    const tx = [sx(real), ...X.slice(k0)], ty = [yReal, ...Y.slice(k0)];
+    node("path", { d: pathFrom(tx, ty) + `L${tx[tx.length - 1]},${f.y0}L${tx[0]},${f.y0}Z`, fill: cssVar("--s2-soft") }, f.svg);
+  }
+  node("path", { d: pathFrom(X, Y), fill: "none", stroke: cssVar("--s1"), "stroke-width": 2, "stroke-linejoin": "round" }, f.svg);
+
+  // reference lines, labels stacked in three rows above the plot
+  const marks = [
+    { v: row.el, text: `Expected ${money(row.el)}`, color: cssVar("--ink"), cls: "ann", row: 0 },
+    { v: real, text: `Actual 2015 ${money(real)}`, color: cssVar("--s2"), cls: "ann-strong", row: 1 },
+    { v: row.var999, text: `1-in-1,000 ${money(row.var999)}`, color: cssVar("--ink-2"), cls: "ann", row: 2, dash: "4 3" },
+  ];
+  for (const m of marks) {
+    const x = sx(m.v);
+    const yTop = f.y1 - 40 + m.row * 14;
+    node("line", { x1: x, x2: x, y1: yTop + 4, y2: f.y0, stroke: m.color, "stroke-width": 1.5, "stroke-dasharray": m.dash || "none" }, f.svg);
+    const toLeft = x > f.x1 - 120;
+    label(f.svg, x + (toLeft ? -5 : 5), yTop + 2, m.text, m.cls, toLeft ? "end" : "start");
+  }
+
+  const surv = survival(dens);
+  const cross = node("line", { y1: f.y1, y2: f.y0, stroke: cssVar("--muted"), "stroke-width": 1, visibility: "hidden" }, f.svg);
+  const hit = node("rect", { x: f.x0, y: f.y1 - 44, width: f.x1 - f.x0, height: f.y0 - f.y1 + 44, class: "hit" }, f.svg);
+  hit.addEventListener("pointermove", (evt) => {
+    const b = f.svg.getBoundingClientRect();
+    const v = sx.invert(evt.clientX - b.left);
+    const k = Math.max(0, Math.min(lossGrid.length - 1, Math.round(v / (lossGrid[1] - lossGrid[0]))));
+    cross.setAttribute("x1", sx(lossGrid[k])); cross.setAttribute("x2", sx(lossGrid[k])); cross.setAttribute("visibility", "visible");
+    const s = surv[k];
+    const sText = s < 0.001 ? "under 0.1%" : s > 0.999 ? "over 99.9%" : pct(s, s < 0.01 ? 2 : 1);
+    showTip(evt, `Correlation ${rhoText(row.rho)}`, [{ value: sText, label: `chance of losing ${money(lossGrid[k])} or more`, color: cssVar("--s1") }]);
+  });
+  hit.addEventListener("pointerleave", () => { cross.setAttribute("visibility", "hidden"); hideTip(); });
+}
+
+function drawCapitalCurve() {
+  const box = $("#capital-chart");
+  const f = frame(box, window.innerWidth < 700 ? 250 : 300, { l: 54, r: 16, t: 50, b: 44 });
+  const rows = D.rho;
+  const xmax = rows[rows.length - 1].rho;
+  const sx = scale(0, xmax, f.x0, f.x1);
+  const ymax = Math.max(...rows.map((r) => r.cap999));
+  const ticks = niceTicks(0, ymax * 1.05, 5);
+  const sy = scale(0, ticks[ticks.length - 1], f.y0, f.y1);
+  const c = D.correlation;
+  node("rect", { x: sx(c.ci_low), y: f.y1, width: Math.max(2, sx(c.ci_high) - sx(c.ci_low)), height: f.y0 - f.y1, fill: cssVar("--band") }, f.svg);
+  yAxis(f, sy, ticks, (v) => money(v));
+  xAxis(f, sx, niceTicks(0, xmax, 6), (v) => pct(v), "Asset correlation");
+  node("path", { d: pathFrom(rows.map((r) => sx(r.rho)), rows.map((r) => sy(r.cap999))), fill: "none", stroke: cssVar("--ink-2"), "stroke-width": 2, "stroke-linejoin": "round" }, f.svg);
+  for (const tag of ["data", "reference"]) {
+    const r = rows[tagRow(tag)];
+    node("circle", { cx: sx(r.rho), cy: sy(r.cap999), r: 5, fill: cssVar(tag === "data" ? "--s1" : "--s2"), stroke: cssVar("--surface"), "stroke-width": 2 }, f.svg);
+  }
+  const sel = rows[state.rho];
+  node("circle", { cx: sx(sel.rho), cy: sy(sel.cap999), r: 9, fill: "none", stroke: cssVar("--ink"), "stroke-width": 1.5 }, f.svg);
+  const right = sx(sel.rho) > (f.x0 + f.x1) * 0.6;
+  label(f.svg, sx(sel.rho) + (right ? -14 : 14), sy(sel.cap999) - 12, money(sel.cap999), "ann-strong", right ? "end" : "start");
+
+  const cross = node("line", { y1: f.y1, y2: f.y0, stroke: cssVar("--muted"), "stroke-width": 1, visibility: "hidden" }, f.svg);
+  const hit = node("rect", { x: f.x0, y: f.y1, width: f.x1 - f.x0, height: f.y0 - f.y1, class: "hit" }, f.svg);
+  const nearest = (evt) => {
+    const b = f.svg.getBoundingClientRect();
+    const v = sx.invert(evt.clientX - b.left);
+    let best = 0;
+    rows.forEach((r, k) => { if (Math.abs(r.rho - v) < Math.abs(rows[best].rho - v)) best = k; });
+    return best;
+  };
+  hit.addEventListener("pointermove", (evt) => {
+    const k = nearest(evt);
+    cross.setAttribute("x1", sx(rows[k].rho)); cross.setAttribute("x2", sx(rows[k].rho)); cross.setAttribute("visibility", "visible");
+    const tag = rows[k].tag === "data" ? " (data estimate)" : rows[k].tag === "reference" ? " (Basel)" : "";
+    showTip(evt, `Correlation ${rhoText(rows[k].rho)}${tag}`, [
+      { value: money(rows[k].cap999), label: "capital at 99.9%", color: cssVar("--ink-2") },
+      { value: money(rows[k].var999), label: "1-in-1,000 loss" },
+    ]);
+  });
+  hit.addEventListener("pointerleave", () => { cross.setAttribute("visibility", "hidden"); hideTip(); });
+  hit.addEventListener("click", (evt) => { state.rho = nearest(evt); $("#rho").value = state.rho; hideTip(); updateCapital(); });
+}
+
+/* ---------- 3. models ---------- */
+function drawAuc() {
+  const box = $("#auc-chart");
+  const rowH = 46;
+  const items = D.variants;
+  const f = frame(box, items.length * rowH + 40, { l: 4, r: 52, t: 6, b: 34 });
+  const lo = 0.64;
+  const ticks = niceTicks(lo, 0.71, box.clientWidth < 420 ? 3 : 7);
+  const sx = scale(lo, ticks[ticks.length - 1], f.x0, f.x1);
+  for (const t of ticks) node("line", { x1: sx(t), x2: sx(t), y1: f.y1, y2: f.y0, class: "grid-line" }, f.svg);
+  xAxis(f, sx, ticks, (v) => v.toFixed(2));
+  const bench = items.find((x) => x.kind === "benchmark").auc;
+  node("line", { x1: sx(bench), x2: sx(bench), y1: f.y1, y2: f.y0, stroke: cssVar("--s-neutral"), "stroke-width": 1.5 }, f.svg);
+  const color = { main: "--s1", check: "--s1", pit: "--s2", benchmark: "--s-neutral" };
+  items.forEach((it, k) => {
+    const y = f.y1 + k * rowH;
+    label(f.svg, f.x0, y + 14, it.label, it.kind === "main" ? "ann-strong" : "ann");
+    const cy = y + 30;
+    node("line", { x1: sx(lo), x2: sx(it.auc), y1: cy, y2: cy, stroke: cssVar("--grid"), "stroke-width": 2 }, f.svg);
+    const g = node("g", { class: "bar-mark", tabindex: 0, role: "img", "aria-label": `${it.label}: AUC ${it.auc.toFixed(3)}` }, f.svg);
+    node("circle", { cx: sx(it.auc), cy, r: 12, fill: "transparent" }, g);
+    node("circle", { cx: sx(it.auc), cy, r: it.kind === "main" ? 6.5 : 5.5, fill: cssVar(color[it.kind]), stroke: cssVar("--surface"), "stroke-width": 2 }, g);
+    label(f.svg, sx(it.auc) + 11, cy + 4, it.auc.toFixed(3), "tick");
+    const show = (evt) => showTip(evt, it.label, [{ value: it.auc.toFixed(3), label: "AUC on 2015 loans", color: cssVar(color[it.kind]) },
+      { value: (it.auc - bench >= 0 ? "+" : MINUS) + Math.abs(it.auc - bench).toFixed(3), label: "vs Lending Club grade" }]);
+    g.addEventListener("pointermove", show);
+    g.addEventListener("focus", show);
+    g.addEventListener("pointerleave", hideTip);
+    g.addEventListener("blur", hideTip);
+  });
+}
+
+function drawCalibration() {
+  const box = $("#calib-chart");
+  const W = box.clientWidth;
+  const size = Math.min(W, 380);
+  const f = frame(box, size, { l: 46, r: 12, t: 10, b: 44 });
+  const top = 0.35;
+  const sx = scale(0, top, f.x0, f.x1), sy = scale(0, top, f.y0, f.y1);
+  const ticks = [0, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35].filter((t, i) => W >= 420 || i % 2 === 0);
+  yAxis(f, sy, ticks, (v) => pct(v));
+  xAxis(f, sx, ticks, (v) => pct(v), "Predicted default rate");
+  label(f.svg, f.x0, f.y1 - 2, "Actual", "axis-title", "start", { dy: "-1" });
+  node("line", { x1: sx(0), y1: sy(0), x2: sx(top), y2: sy(top), stroke: cssVar("--s-neutral"), "stroke-width": 1.5, "stroke-dasharray": "5 4" }, f.svg);
+  const pts = D.calibration;
+  node("path", { d: pathFrom(pts.map((p) => sx(p.predicted)), pts.map((p) => sy(p.observed))), fill: "none", stroke: cssVar("--s1"), "stroke-width": 2 }, f.svg);
+  for (const p of pts) {
+    const g = node("g", { class: "bar-mark", tabindex: 0, role: "img", "aria-label": `Decile ${p.decile}: predicted ${pct(p.predicted, 1)}, actual ${pct(p.observed, 1)}` }, f.svg);
+    node("circle", { cx: sx(p.predicted), cy: sy(p.observed), r: 12, fill: "transparent" }, g);
+    node("circle", { cx: sx(p.predicted), cy: sy(p.observed), r: 4.5, fill: cssVar("--s1"), stroke: cssVar("--surface"), "stroke-width": 2 }, g);
+    const show = (evt) => showTip(evt, `Risk decile ${p.decile} of 10`, [
+      { value: pct(p.observed, 1), label: "actual default rate", color: cssVar("--s1") },
+      { value: pct(p.predicted, 1), label: "predicted", color: cssVar("--s-neutral"), dash: true }]);
+    g.addEventListener("pointermove", show); g.addEventListener("focus", show);
+    g.addEventListener("pointerleave", hideTip); g.addEventListener("blur", hideTip);
+  }
+}
+
+function modelTable() {
+  const names = { "LC sub-grade": "Lending Club sub-grade", "Logistic regression": "Logistic regression", "Gradient boosting": "Gradient boosting (main model)" };
+  table($("#model-table"), ["Model, recalibrated on 2014 loans", "AUC", "KS", "Mean predicted default rate", "Actual 2015 default rate"],
+    D.models.map((m) => [names[m.name], m.auc.toFixed(3), m.ks.toFixed(3), pct(m.mean_pd, 1), pct(D.portfolio.default_rate, 1)]));
+}
+
+/* ---------- 4. grades and drivers ---------- */
+function drawGrades() {
+  const box = $("#grade-chart");
+  const narrow = box.clientWidth < 460;
+  const f = frame(box, narrow ? 250 : 290, { l: 42, r: 8, t: 14, b: 34 });
+  const G = D.grades;
+  const keys = [["share_funded", "--s-neutral", "Share of lending"], ["share_el", "--s1", "Share of expected loss"], ["share_tail", "--s2", "Share of tail loss"]];
+  const ymax = Math.max(...G.flatMap((g) => keys.map(([k]) => g[k])));
+  const ticks = niceTicks(0, ymax * 1.05, 4);
+  const sy = scale(0, ticks[ticks.length - 1], f.y0, f.y1);
+  yAxis(f, sy, ticks, (v) => pct(v));
+  node("line", { x1: f.x0, x2: f.x1, y1: f.y0, y2: f.y0, class: "base-line" }, f.svg);
+  const band = (f.x1 - f.x0) / G.length;
+  const gap = 2, bw = Math.max(3, (band * 0.78 - gap * 2) / 3);
+  G.forEach((g, i) => {
+    const gx = f.x0 + i * band + (band - (bw * 3 + gap * 2)) / 2;
+    label(f.svg, f.x0 + i * band + band / 2, f.y0 + 18, g.grade, "tick", "middle");
+    const show = (evt) => showTip(evt, `Grade ${g.grade}`, keys.map(([kk, cc, nn]) => ({ value: pct(g[kk], 1), label: nn.toLowerCase(), color: cssVar(cc) })));
+    keys.forEach(([k, col, name], j) => {
+      const x = gx + j * (bw + gap), y = sy(g[k]);
+      const p = node("path", { d: barPath(x, y, bw, f.y0 - y, 3), fill: cssVar(col), class: "bar-mark", tabindex: 0, role: "img", "aria-label": `Grade ${g.grade}, ${name.toLowerCase()}: ${pct(g[k], 1)}` }, f.svg);
+      p.addEventListener("focus", show); p.addEventListener("blur", hideTip);
+    });
+    // the whole column of a grade is the hover target, so the pointer never has to land on a thin bar
+    const col = node("rect", { x: f.x0 + i * band, y: f.y1, width: band, height: f.y0 - f.y1, fill: "transparent" }, f.svg);
+    col.addEventListener("pointermove", (evt) => { show(evt); col.setAttribute("fill", cssVar("--grid")); col.setAttribute("fill-opacity", "0.35"); });
+    col.addEventListener("pointerleave", () => { hideTip(); col.setAttribute("fill", "transparent"); });
+  });
+  label(f.svg, (f.x0 + f.x1) / 2, f.y0 + 32, "Lending Club grade (A safest)", "axis-title", "middle");
+  table($("#grade-table"), ["Grade", "Loans", "Lent", "Predicted default rate", "Actual default rate", "Realised return", "Share of lending", "Share of expected loss", "Share of tail loss"],
+    G.map((g) => [g.grade, g.loans.toLocaleString("en-US"), money(g.funded), pct(g.mean_pd, 1), pct(g.default_rate, 1), (g.realised_return < 0 ? MINUS : "") + pct(Math.abs(g.realised_return), 1), pct(g.share_funded, 1), pct(g.share_el, 1), pct(g.share_tail, 1)]));
+}
+
+function drawDrivers() {
+  const box = $("#driver-chart");
+  const W = box.clientWidth;
+  const narrow = W < 460;
+  const rowH = narrow ? 40 : 24;
+  const items = D.drivers;
+  const labelW = narrow ? 0 : Math.min(230, W * 0.46);
+  const f = frame(box, items.length * rowH + 30, { l: labelW + 4, r: 44, t: 4, b: 26 });
+  const xmax = Math.max(...items.map((d) => d.value));
+  const ticks = niceTicks(0, xmax, narrow ? 3 : 4);
+  const sx = scale(0, Math.max(xmax, ticks[ticks.length - 1]), f.x0, f.x1);
+  for (const t of ticks) node("line", { x1: sx(t), x2: sx(t), y1: f.y1, y2: f.y0, class: "grid-line" }, f.svg);
+  for (const t of ticks) label(f.svg, sx(t), f.y0 + 16, t.toFixed(2), "tick", "middle");
+  items.forEach((d, k) => {
+    const y = f.y1 + k * rowH;
+    const barY = narrow ? y + 20 : y + 5, barH = narrow ? 12 : 14;
+    if (narrow) label(f.svg, f.x0, y + 13, d.label, "ann");
+    else label(f.svg, f.x0 - 10, y + 16, d.label, "ann", "end");
+    const p = node("path", { d: barPath(f.x0, barY, sx(d.value) - f.x0, barH, 3, "right"), fill: cssVar("--s1"), class: "bar-mark", tabindex: 0, role: "img", "aria-label": `${d.label}: ${d.value.toFixed(3)}` }, f.svg);
+    label(f.svg, sx(d.value) + 6, barY + barH - 2, d.value.toFixed(3), "tick");
+    const show = (evt) => showTip(evt, d.label, [{ value: d.value.toFixed(3), label: "mean |SHAP|, log-odds", color: cssVar("--s1") }]);
+    p.addEventListener("pointermove", show); p.addEventListener("focus", show);
+    p.addEventListener("pointerleave", hideTip); p.addEventListener("blur", hideTip);
+  });
+  node("line", { x1: f.x0, x2: f.x0, y1: f.y1, y2: f.y0, class: "base-line" }, f.svg);
+}
+
+/* ---------- wiring ---------- */
+function renderAll() {
+  drawPolicy(); drawDensity(); drawCapitalCurve(); drawAuc(); drawCalibration(); drawGrades(); drawDrivers();
+}
+function init() {
+  fillStatic();
+  modelTable();
+  const share = $("#share");
+  share.max = Math.round(P.shares[P.shares.length - 1] * 100);
+  share.value = Math.round(P.shares[state.share] * 100);
+  share.addEventListener("input", () => { state.share = idxOfShare(+share.value / 100); updatePolicy(); });
+  document.querySelectorAll('input[name="rank"]').forEach((r) => r.addEventListener("change", () => { state.rank = r.value; updatePolicy(); }));
+  document.querySelectorAll('input[name="metric"]').forEach((r) => r.addEventListener("change", () => { state.metric = r.value; drawPolicy(); }));
+  const rho = $("#rho");
+  rho.max = D.rho.length - 1;
+  rho.value = state.rho;
+  rho.addEventListener("input", () => { state.rho = +rho.value; updateCapital(); });
+  $("#preset-data").addEventListener("click", () => { state.rho = tagRow("data"); rho.value = state.rho; updateCapital(); });
+  $("#preset-ref").addEventListener("click", () => { state.rho = tagRow("reference"); rho.value = state.rho; updateCapital(); });
+  updatePolicy();
+  updateCapital();
+  drawAuc(); drawCalibration(); drawGrades(); drawDrivers();
+
+  let pending = 0, lastW = window.innerWidth;
+  const redraw = () => { cancelAnimationFrame(pending); pending = requestAnimationFrame(renderAll); };
+  new ResizeObserver(() => { if (window.innerWidth !== lastW) { lastW = window.innerWidth; redraw(); } }).observe(document.body);
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", redraw);
+  new MutationObserver(redraw).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  document.addEventListener("scroll", hideTip, { passive: true });
+}
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => requestAnimationFrame(renderAll));
+init();
+</script>
+</body>
+</html>

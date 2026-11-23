@@ -1,0 +1,1052 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Credit Portfolio Risk</title>
+<meta name="description" content="Interactive results of a credit risk project on 282,787 Lending Club loans: default prediction, portfolio loss simulation, economic capital and approval policy.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: a risk-committee pack. Summary first, then one module per question, each with its control, readout and chart. */
+:root {
+  color-scheme: light;
+  --bg: #f2f4f7;
+  --surface: #fcfdfe;
+  --ink: #0e1621;
+  --ink-2: #465263;
+  --muted: #6f7a89;
+  --grid: #e3e7ed;
+  --axis: #c3cbd6;
+  --line: rgba(14, 22, 33, 0.10);
+  --s1: #2a78d6;
+  --s2: #eb6834;
+  --s-neutral: #8b95a3;
+  --s1-soft: rgba(42, 120, 214, 0.16);
+  --s2-soft: rgba(235, 104, 52, 0.20);
+  --band: rgba(42, 120, 214, 0.10);
+  --good: #006300;
+  --bad: #b3261e;
+  --font: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0d1117; --surface: #151b23; --ink: #edf1f5; --ink-2: #b6c0cc; --muted: #8590a0;
+    --grid: #242c36; --axis: #3a4452; --line: rgba(255, 255, 255, 0.10);
+    --s1: #3987e5; --s2: #d95926; --s-neutral: #6f7a88;
+    --s1-soft: rgba(57, 135, 229, 0.24); --s2-soft: rgba(217, 89, 38, 0.28); --band: rgba(57, 135, 229, 0.16);
+    --good: #2fb344; --bad: #ef7a72;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0d1117; --surface: #151b23; --ink: #edf1f5; --ink-2: #b6c0cc; --muted: #8590a0;
+  --grid: #242c36; --axis: #3a4452; --line: rgba(255, 255, 255, 0.10);
+  --s1: #3987e5; --s2: #d95926; --s-neutral: #6f7a88;
+  --s1-soft: rgba(57, 135, 229, 0.24); --s2-soft: rgba(217, 89, 38, 0.28); --band: rgba(57, 135, 229, 0.16);
+  --good: #2fb344; --bad: #ef7a72;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; background: var(--bg); color: var(--ink);
+  font: 15px/1.55 var(--font);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: calc(env(safe-area-inset-top, 0px) + 28px) calc(env(safe-area-inset-bottom, 0px) + 40px);
+}
+.page { max-width: 1160px; margin: 0 auto; display: grid; gap: 22px; }
+a { color: var(--s1); text-underline-offset: 2px; }
+a:focus-visible, button:focus-visible, input:focus-visible + label, summary:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--s1); outline-offset: 2px; border-radius: 4px;
+}
+h1, h2, h3 { margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+h1 { font-size: clamp(1.9rem, 1.3rem + 2.2vw, 2.7rem); font-weight: 700; line-height: 1.1; }
+h2 { font-size: 1.3rem; font-weight: 600; line-height: 1.25; }
+h3 { font-size: 0.95rem; font-weight: 600; }
+p { margin: 0; }
+.eyebrow { font: 500 0.72rem/1.3 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.prose { max-width: 68ch; color: var(--ink-2); }
+.prose strong { color: var(--ink); font-weight: 600; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* Header */
+.masthead { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr); gap: 28px; align-items: end; padding-block: 6px 4px; }
+.masthead .lede { margin-top: 12px; font-size: 1.05rem; color: var(--ink-2); max-width: 60ch; }
+.facts { display: grid; gap: 8px; margin: 0; font-size: 0.86rem; color: var(--ink-2); }
+.facts div { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr); gap: 10px; border-top: 1px solid var(--line); padding-top: 8px; }
+.facts dt { font: 500 0.7rem/1.6 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.facts dd { margin: 0; }
+
+/* Summary tiles */
+.summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.tile { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 16px 16px 14px; display: grid; gap: 6px; align-content: start; }
+.tile .q { font-size: 0.82rem; color: var(--ink-2); }
+.tile .big { font-size: 1.75rem; font-weight: 600; line-height: 1.1; letter-spacing: -0.02em; }
+.tile .big small { font-size: 0.95rem; font-weight: 500; color: var(--ink-2); letter-spacing: 0; }
+.tile .note { font-size: 0.8rem; color: var(--muted); }
+
+/* Modules */
+.module { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px 22px 20px; display: grid; gap: 18px; min-width: 0; }
+.module-head { display: grid; gap: 8px; }
+.controls { display: flex; flex-wrap: wrap; gap: 14px 26px; align-items: end; padding: 14px 16px; background: var(--bg); border-radius: 8px; }
+.control { display: grid; gap: 6px; min-width: 0; }
+.control > .label { font: 500 0.7rem/1.3 var(--mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.slider-row { display: flex; align-items: center; gap: 12px; }
+.slider-row output { font-size: 1.15rem; font-weight: 600; min-width: 4.2ch; font-variant-numeric: tabular-nums; }
+input[type="range"] { width: min(320px, 62vw); accent-color: var(--s1); margin: 0; height: 28px; }
+.seg { position: relative; display: inline-flex; flex-wrap: wrap; border: 1px solid var(--axis); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg label { padding: 6px 12px; font-size: 0.85rem; cursor: pointer; color: var(--ink-2); border-left: 1px solid var(--axis); user-select: none; }
+.seg label:first-of-type { border-left: 0; }
+.seg input:checked + label { background: var(--ink); color: var(--surface); }
+.seg label:hover { background: var(--grid); }
+.seg input:checked + label:hover { background: var(--ink); }
+.btn { font: inherit; font-size: 0.85rem; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--axis); background: var(--surface); color: var(--ink-2); cursor: pointer; }
+.btn:hover { background: var(--grid); }
+.btn[aria-pressed="true"] { border-color: var(--ink); color: var(--ink); font-weight: 600; }
+.btn .swatch { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 7px; vertical-align: 0; }
+
+.readouts { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.readouts.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.stat { background: var(--surface); padding: 12px 14px; display: grid; gap: 3px; align-content: start; min-width: 0; }
+.stat .k { font-size: 0.78rem; color: var(--ink-2); }
+.stat .v { font-size: 1.35rem; font-weight: 600; letter-spacing: -0.01em; line-height: 1.2; }
+.stat .v.good { color: var(--good); }
+.stat .v.bad { color: var(--bad); }
+.stat .d { font-size: 0.76rem; color: var(--muted); }
+
+.two { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 22px; }
+.two.even { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.chart-card { display: grid; gap: 8px; min-width: 0; align-content: start; }
+.chart-title { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 14px; align-items: baseline; }
+.chart-title h3 { font-size: 0.92rem; }
+.legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 0.78rem; color: var(--ink-2); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.key-line { width: 16px; height: 0; border-top: 2px solid currentColor; }
+.key-line.dash { border-top-style: dashed; }
+.key-box { width: 10px; height: 10px; border-radius: 2px; }
+.key-dot { width: 9px; height: 9px; border-radius: 50%; }
+.chart { width: 100%; min-width: 0; position: relative; }
+.chart svg { display: block; overflow: visible; }
+.caption { font-size: 0.8rem; color: var(--muted); max-width: 80ch; }
+.callout { border-left: 3px solid var(--s1); padding: 4px 0 4px 14px; color: var(--ink-2); font-size: 0.9rem; max-width: 80ch; }
+.callout strong { color: var(--ink); }
+
+svg text { font-family: var(--font); }
+.tick { font-size: 11px; fill: var(--muted); font-variant-numeric: tabular-nums; }
+.axis-title { font-size: 11px; fill: var(--muted); }
+.ann { font-size: 11.5px; fill: var(--ink-2); font-weight: 500; }
+.ann-strong { font-size: 11.5px; fill: var(--ink); font-weight: 600; }
+.grid-line { stroke: var(--grid); stroke-width: 1; }
+.base-line { stroke: var(--axis); stroke-width: 1; }
+.hit { fill: transparent; cursor: crosshair; }
+.bar-mark { cursor: default; }
+.bar-mark:hover, .bar-mark:focus { opacity: 0.8; outline: none; }
+
+/* Tables */
+details { font-size: 0.85rem; }
+summary { cursor: pointer; color: var(--ink-2); width: fit-content; }
+.table-wrap { overflow-x: auto; margin-top: 10px; }
+table { border-collapse: collapse; width: 100%; font-size: 0.84rem; font-variant-numeric: tabular-nums; }
+th, td { padding: 7px 10px; text-align: right; border-bottom: 1px solid var(--grid); white-space: nowrap; }
+th { font-weight: 600; color: var(--ink-2); font-size: 0.76rem; }
+th:first-child, td:first-child { text-align: left; }
+tr.sel td { background: var(--s1-soft); }
+
+/* Tooltip */
+#tip { position: fixed; z-index: 20; pointer-events: none; background: var(--surface); color: var(--ink); border: 1px solid var(--line); box-shadow: 0 6px 24px rgba(0, 0, 0, 0.14); border-radius: 8px; padding: 8px 10px; font-size: 0.8rem; display: grid; gap: 4px; max-width: 280px; }
+.tip-title { font-size: 0.74rem; color: var(--muted); }
+.tip-row { display: flex; align-items: center; gap: 8px; }
+.tip-row strong { font-variant-numeric: tabular-nums; }
+.tip-label { color: var(--ink-2); }
+.tip-key { width: 12px; height: 0; border-top: 2px solid; flex: none; }
+.tip-key.dash { border-top-style: dashed; }
+
+.lists { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 22px; }
+.lists ul { margin: 8px 0 0; padding-left: 1.1rem; color: var(--ink-2); display: grid; gap: 6px; font-size: 0.9rem; }
+.lists li strong { color: var(--ink); font-weight: 600; }
+footer { font-size: 0.8rem; color: var(--muted); display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 24px; padding-top: 4px; }
+
+@media (max-width: 980px) {
+  .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .readouts, .readouts.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .readouts > .stat:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  .two, .two.even, .lists { grid-template-columns: minmax(0, 1fr); }
+  .masthead { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 520px) {
+  body { font-size: 14.5px; }
+  .module { padding: 16px 14px; }
+  .summary { grid-template-columns: minmax(0, 1fr); }
+  .tile .big { font-size: 1.55rem; }
+  .facts div { grid-template-columns: 6rem minmax(0, 1fr); }
+  .stat .v { font-size: 1.2rem; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .chart path.series, .chart path.area { transition: opacity 0.15s ease; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="masthead">
+    <div>
+      <p class="eyebrow">Quant finance project · Lending Club consumer loans</p>
+      <h1>Credit Portfolio Risk</h1>
+      <p class="lede">A machine learning model predicts which borrowers will default. Its predictions feed a simulation of losses on a <span data-k="book_size"></span> loan book, which answers three questions a lender's risk committee asks: how much will we lose, how bad could it get, and which loans should we stop making.</p>
+    </div>
+    <dl class="facts">
+      <div><dt>Test book</dt><dd><span data-k="test_loans"></span> 36-month loans issued in 2015, all with known outcomes</dd></div>
+      <div><dt>Training</dt><dd>Loans issued 2012 to 2014. Nothing from 2015 is used to build a model.</dd></div>
+      <div><dt>Simulation</dt><dd>Every loan simulated individually, <span data-k="scenarios"></span> economic scenarios</dd></div>
+      <div><dt>Code</dt><dd><a href="https://github.com/Seangoh97/credit-portfolio-risk">github.com/Seangoh97/credit-portfolio-risk</a></dd></div>
+    </dl>
+  </header>
+
+  <section class="summary" aria-label="Summary">
+    <div class="tile">
+      <p class="q">Does the model beat the lender's own risk grade?</p>
+      <p class="big"><span data-k="auc_main"></span> <small>vs <span data-k="auc_grade"></span> AUC</small></p>
+      <p class="note">Ranking of 2015 borrowers by default risk. Gain <span data-k="auc_gain"></span>, 95% interval <span data-k="auc_ci"></span>.</p>
+    </div>
+    <div class="tile">
+      <p class="q">How much did the 2015 book lose?</p>
+      <p class="big"><span data-k="realised"></span> <small>vs <span data-k="expected"></span> expected</small></p>
+      <p class="note">Lifetime principal lost. Loans defaulted more often than in earlier years.</p>
+    </div>
+    <div class="tile">
+      <p class="q">How much capital does it need?</p>
+      <p class="big"><span data-k="cap_data"></span> <small>to</small> <span data-k="cap_ref"></span></p>
+      <p class="note">Enough to cover a 1-in-1,000 loss. The range comes almost entirely from one assumption: how strongly defaults move together.</p>
+    </div>
+    <div class="tile">
+      <p class="q">What is the model worth?</p>
+      <p class="big"><span data-k="cut_loss"></span> <small>losses avoided</small></p>
+      <p class="note">Declining the riskiest 10% costs <span data-k="cut_profit"></span> of profit. The same cut by the lender's grade costs <span data-k="cut_profit_grade"></span>.</p>
+    </div>
+  </section>
+
+  <!-- 1. Approval policy -->
+  <section class="module" id="policy" aria-labelledby="policy-h">
+    <div class="module-head">
+      <p class="eyebrow">Approval policy</p>
+      <h2 id="policy-h">What if the lender had turned away its riskiest applicants?</h2>
+      <p class="prose">Pick how many 2015 applicants to decline and how to rank them. Every figure is what those loans actually paid or lost, so this is a replay of history rather than a forecast.</p>
+    </div>
+    <div class="controls">
+      <div class="control">
+        <span class="label" id="share-label">Applicants declined</span>
+        <div class="slider-row">
+          <input type="range" id="share" min="0" max="30" step="1" value="10" aria-labelledby="share-label" aria-describedby="share-out">
+          <output id="share-out" for="share"></output>
+        </div>
+      </div>
+      <div class="control">
+        <span class="label" id="rank-label">Ranked by</span>
+        <div class="seg" role="radiogroup" aria-labelledby="rank-label">
+          <input type="radio" name="rank" id="rank-gbm" value="gbm" checked><label for="rank-gbm">Gradient boosting</label>
+          <input type="radio" name="rank" id="rank-pit" value="pit"><label for="rank-pit">Point-in-time model</label>
+          <input type="radio" name="rank" id="rank-grade" value="grade"><label for="rank-grade">Lending Club grade</label>
+        </div>
+      </div>
+    </div>
+    <div class="readouts" aria-live="polite">
+      <div class="stat"><span class="k">Change in profit</span><span class="v" id="p-profit"></span><span class="d" id="p-profit-d"></span></div>
+      <div class="stat"><span class="k">Losses avoided</span><span class="v" id="p-loss"></span><span class="d" id="p-loss-d"></span></div>
+      <div class="stat"><span class="k">Lending given up</span><span class="v" id="p-lend"></span><span class="d" id="p-lend-d"></span></div>
+      <div class="stat"><span class="k">Default rate of loans kept</span><span class="v" id="p-dr"></span><span class="d" id="p-dr-d"></span></div>
+      <div class="stat"><span class="k">Capital released</span><span class="v" id="p-cap"></span><span class="d" id="p-cap-d"></span></div>
+    </div>
+    <div class="chart-card">
+      <div class="chart-title">
+        <div class="seg" role="radiogroup" aria-label="Chart measure">
+          <input type="radio" name="metric" id="m-profit" value="profit" checked><label for="m-profit">Profit</label>
+          <input type="radio" name="metric" id="m-loss" value="loss"><label for="m-loss">Losses avoided</label>
+          <input type="radio" name="metric" id="m-cap" value="cap"><label for="m-cap">Capital needed</label>
+        </div>
+        <div class="legend" aria-hidden="true">
+          <span style="color:var(--s1)"><i class="key-line"></i><span style="color:var(--ink-2)">Gradient boosting</span></span>
+          <span style="color:var(--s2)"><i class="key-line dash"></i><span style="color:var(--ink-2)">Point-in-time model</span></span>
+          <span style="color:var(--s-neutral)"><i class="key-line"></i><span style="color:var(--ink-2)">Lending Club grade</span></span>
+        </div>
+      </div>
+      <div class="chart" id="policy-chart" role="img" aria-label="Line chart of the selected measure against the share of applicants declined, for three ways of ranking applicants."></div>
+      <p class="caption" id="policy-caption"></p>
+      <details>
+        <summary>Show the numbers</summary>
+        <div class="table-wrap"><table id="policy-table"></table></div>
+      </details>
+    </div>
+    <p class="callout" id="rule-callout"></p>
+  </section>
+
+  <!-- 2. Capital and correlation -->
+  <section class="module" id="capital" aria-labelledby="capital-h">
+    <div class="module-head">
+      <p class="eyebrow">Loss distribution and capital</p>
+      <h2 id="capital-h">How bad could a year get? It depends on how defaults move together.</h2>
+      <p class="prose">The expected loss stays the same whatever you choose here. The asset correlation decides how often bad outcomes bunch together, which sets how wide the range of possible losses is and how much capital the lender must hold. The project estimates it from 30 quarterly loan vintages; the Basel formula for retail lending gives a much higher value.</p>
+    </div>
+    <div class="controls">
+      <div class="control">
+        <span class="label" id="rho-label">Asset correlation</span>
+        <div class="slider-row">
+          <input type="range" id="rho" min="0" max="1" step="1" value="0" aria-labelledby="rho-label" aria-describedby="rho-out">
+          <output id="rho-out" for="rho"></output>
+        </div>
+      </div>
+      <div class="control">
+        <span class="label">Jump to</span>
+        <div style="display:flex;flex-wrap:wrap;gap:8px">
+          <button class="btn" type="button" id="preset-data"><span class="swatch" style="background:var(--s1)"></span>Estimated from the data</button>
+          <button class="btn" type="button" id="preset-ref"><span class="swatch" style="background:var(--s2)"></span>Basel reference</button>
+        </div>
+      </div>
+    </div>
+    <div class="readouts" aria-live="polite">
+      <div class="stat"><span class="k">Expected loss</span><span class="v" id="c-el"></span><span class="d">Same at every correlation</span></div>
+      <div class="stat"><span class="k">1-in-100 loss</span><span class="v" id="c-v99"></span><span class="d" id="c-v99-d"></span></div>
+      <div class="stat"><span class="k">1-in-1,000 loss</span><span class="v" id="c-v999"></span><span class="d" id="c-v999-d"></span></div>
+      <div class="stat"><span class="k">Capital to hold (99.9%)</span><span class="v" id="c-cap"></span><span class="d" id="c-cap-d"></span></div>
+      <div class="stat"><span class="k">The actual 2015 loss</span><span class="v" id="c-pct"></span><span class="d" id="c-pct-d"></span></div>
+    </div>
+    <div class="two">
+      <div class="chart-card">
+        <div class="chart-title"><h3>Range of possible lifetime losses on the 2015 book</h3></div>
+        <div class="chart" id="density-chart" role="img" aria-label="Probability distribution of the 2015 book's lifetime credit loss at the selected correlation, with the expected loss, the actual loss and the 1-in-1,000 loss marked."></div>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title"><h3>Capital needed at each correlation</h3>
+          <div class="legend" aria-hidden="true">
+            <span><i class="key-dot" style="background:var(--s1)"></i>Data estimate</span>
+            <span><i class="key-dot" style="background:var(--s2)"></i>Basel</span>
+            <span><i class="key-box" style="background:var(--band)"></i>95% interval of estimate</span>
+          </div>
+        </div>
+        <div class="chart" id="capital-chart" role="img" aria-label="Line chart of economic capital at 99.9% against asset correlation."></div>
+      </div>
+    </div>
+    <p class="caption" id="capital-caption"></p>
+    <details>
+      <summary>Show the numbers</summary>
+      <div class="table-wrap"><table id="rho-table"></table></div>
+    </details>
+  </section>
+
+  <!-- 3. Models -->
+  <section class="module" id="models" aria-labelledby="models-h">
+    <div class="module-head">
+      <p class="eyebrow">Default model</p>
+      <h2 id="models-h">The model ranks borrowers better, and most of the gain survives a strict test</h2>
+      <p class="prose" id="models-prose"></p>
+    </div>
+    <div class="two even">
+      <div class="chart-card">
+        <div class="chart-title"><h3>Ranking power on 2015 loans (AUC)</h3>
+          <div class="legend" aria-hidden="true">
+            <span><i class="key-dot" style="background:var(--s1)"></i>Trained on final outcomes</span>
+            <span><i class="key-dot" style="background:var(--s2)"></i>Point-in-time</span>
+            <span><i class="key-dot" style="background:var(--s-neutral)"></i>Benchmark</span>
+          </div>
+        </div>
+        <div class="chart" id="auc-chart" role="img" aria-label="Dot plot of AUC on 2015 loans for six model variants, with the Lending Club grade as a reference line."></div>
+        <p class="caption">AUC is the chance that a randomly chosen defaulter is ranked riskier than a randomly chosen borrower who repaid. 0.5 is a coin toss.</p>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title"><h3>Predicted vs actual default rate, by risk decile</h3>
+          <div class="legend" aria-hidden="true">
+            <span style="color:var(--s1)"><i class="key-line"></i><span style="color:var(--ink-2)">Gradient boosting</span></span>
+            <span style="color:var(--s-neutral)"><i class="key-line dash"></i><span style="color:var(--ink-2)">Perfect calibration</span></span>
+          </div>
+        </div>
+        <div class="chart" id="calib-chart" role="img" aria-label="Scatter of predicted against actual default rate for ten risk deciles of 2015 loans."></div>
+        <p class="caption" id="calib-caption"></p>
+      </div>
+    </div>
+    <div class="table-wrap"><table id="model-table"></table></div>
+  </section>
+
+  <!-- 4. Risk by grade and drivers -->
+  <section class="module" id="grades" aria-labelledby="grades-h">
+    <div class="module-head">
+      <p class="eyebrow">Where the risk sits</p>
+      <h2 id="grades-h">Middle grades carry far more of the risk than of the lending</h2>
+      <p class="prose" id="grades-prose"></p>
+    </div>
+    <div class="two even">
+      <div class="chart-card">
+        <div class="chart-title"><h3>Share of the 2015 book, by Lending Club grade</h3>
+          <div class="legend" aria-hidden="true">
+            <span><i class="key-box" style="background:var(--s-neutral)"></i>Lending</span>
+            <span><i class="key-box" style="background:var(--s1)"></i>Expected loss</span>
+            <span><i class="key-box" style="background:var(--s2)"></i>Tail loss</span>
+          </div>
+        </div>
+        <div class="chart" id="grade-chart" role="img" aria-label="Grouped bar chart of each grade's share of lending, expected loss and tail loss."></div>
+        <p class="caption">Tail loss: each grade's share of losses in the worst 1% of simulated outcomes, at the Basel reference correlation.</p>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title"><h3>What drives the model's predictions</h3></div>
+        <div class="chart" id="driver-chart" role="img" aria-label="Bar chart of the twelve inputs with the largest average effect on predicted default risk."></div>
+        <p class="caption">Average size of each input's effect on a prediction (mean absolute SHAP value, log-odds). Geography is excluded from the model on purpose.</p>
+      </div>
+    </div>
+    <div class="table-wrap"><table id="grade-table"></table></div>
+  </section>
+
+  <section class="module" aria-labelledby="method-h">
+    <div class="module-head">
+      <p class="eyebrow">Method and limits</p>
+      <h2 id="method-h">How the numbers were produced, and what they cannot tell you</h2>
+    </div>
+    <div class="lists">
+      <div>
+        <h3>Method</h3>
+        <ul>
+          <li><strong>Default model.</strong> LightGBM on 65 inputs known when the loan was made, compared with a logistic regression and the lender's sub-grade. All three are recalibrated on 2014 loans the same way.</li>
+          <li><strong>Loss if default.</strong> Share of the loan lost when it defaults, by grade, from 2012 to 2014 defaults.</li>
+          <li><strong>Correlation.</strong> One-factor (Vasicek) model fitted by maximum likelihood to default counts by vintage quarter and grade.</li>
+          <li><strong>Loss distribution.</strong> Monte Carlo simulation of every loan, cross-checked against a semi-analytic method and the closed-form large-portfolio formula.</li>
+          <li><strong>Checks.</strong> <span data-k="checks"></span> numerical self-checks pass on every run, 62 unit tests pass, and two independent runs give byte-identical results.</li>
+        </ul>
+      </div>
+      <div>
+        <h3>Limits</h3>
+        <ul>
+          <li><strong>Approved loans only.</strong> There are no outcomes for rejected applicants, so the analysis covers tightening credit, not loosening it.</li>
+          <li><strong>One test year.</strong> The actual 2015 loss is a single observation, not a statistical backtest.</li>
+          <li><strong>Fragile correlation estimate.</strong> Vintages overlap in time and the sample has few loans that lived through a recession.</li>
+          <li><strong>Simple profit.</strong> Cash in minus cash out, with no discounting or funding and servicing costs.</li>
+          <li><strong>Not regulatory capital.</strong> The Basel correlation is a one-year reference applied to lifetime losses.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span>Data: Lending Club accepted loans 2007 to 2018 (public Kaggle dataset). Figures are lifetime cash flows, undiscounted.</span>
+    <span>Full write-up and code: <a href="https://github.com/Seangoh97/credit-portfolio-risk">GitHub</a></span>
+  </footer>
+</div>
+
+<div id="tip" hidden></div>
+
+<script>
+const D = {"meta":{"loans_test":282787,"funded_test":3620.636,"loans_clean":618345,"default_rate":{"train":0.12705,"calib":0.13726,"test":0.14884},"train_loans":143892,"strict_loans":29095,"scenarios":20000,"checks":13,"checks_passed":13},"models":[{"name":"LC sub-grade","auc":0.67864,"ks":0.26195,"mean_pd":0.13027},{"name":"Logistic regression","auc":0.69157,"ks":0.27714,"mean_pd":0.12643},{"name":"Gradient boosting","auc":0.69878,"ks":0.2882,"mean_pd":0.1319}],"variants":[{"label":"Main model: final outcomes of 2012-13 loans","auc":0.69878,"kind":"main"},{"label":"Main model without the lender's grade and rate","auc":0.68789,"kind":"check"},{"label":"Core inputs only, 2012-13 loans","auc":0.68525,"kind":"check"},{"label":"Point-in-time: early delinquency seen by Dec 2014","auc":0.68426,"kind":"pit"},{"label":"Lending Club sub-grade (benchmark)","auc":0.67864,"kind":"benchmark"},{"label":"Point-in-time: only loans matured by Dec 2014","auc":0.66597,"kind":"pit"}],"gain":{"difference":0.02014,"ci_low":0.01855,"ci_high":0.02204},"calibration":[{"decile":1,"predicted":0.03174,"observed":0.02702},{"decile":2,"predicted":0.05127,"observed":0.05626},{"decile":3,"predicted":0.06825,"observed":0.07688},{"decile":4,"predicted":0.08494,"observed":0.10149},{"decile":5,"predicted":0.10277,"observed":0.12133},{"decile":6,"predicted":0.12288,"observed":0.14828},{"decile":7,"predicted":0.14702,"observed":0.17115},{"decile":8,"predicted":0.1778,"observed":0.20631},{"decile":9,"predicted":0.22141,"observed":0.24835},{"decile":10,"predicted":0.31097,"observed":0.33131}],"drivers":[{"label":"Interest rate","value":0.2275},{"label":"Annual income","value":0.1331},{"label":"Accounts opened, last 24 months","value":0.1146},{"label":"Lending Club sub-grade","value":0.0957},{"label":"Debt-to-income ratio","value":0.0848},{"label":"Loan payment / income","value":0.0758},{"label":"FICO score","value":0.0688},{"label":"Months since newest bank card","value":0.0573},{"label":"Loan purpose","value":0.0562},{"label":"Home ownership","value":0.0514},{"label":"Revolving balance / income","value":0.0476},{"label":"Total bank card limit","value":0.0425}],"portfolio":{"expected_loss":232.99,"realised_loss":273.752,"gap":40.761,"gap_default":34.612,"gap_severity":6.149,"funded":3620.636,"mean_pd":0.1319,"default_rate":0.14884},"correlation":{"rho_data":0.004651,"ci_low":0.002464,"ci_high":0.009253,"rho_ref":0.070409,"annual":0.004356,"moments":0.005646},"monte_carlo":{"data":{"var999":313.226,"cap999":80.236},"reference":{"var999":626.21,"cap999":393.221}},"rho":[{"rho":0.001,"tag":"","el":232.99,"var99":259.656,"var999":268.904,"es99":263.746,"cap99":26.666,"cap999":35.913,"pct":0.9998},{"rho":0.0025,"tag":"","el":232.99,"var99":275.723,"var999":290.986,"es99":282.472,"cap99":42.732,"cap999":57.996,"pct":0.987},{"rho":0.004651,"tag":"data","el":232.99,"var99":292.207,"var999":313.948,"es99":301.809,"cap99":59.217,"cap999":80.957,"pct":0.9504},{"rho":0.005,"tag":"","el":232.99,"var99":294.525,"var999":317.199,"es99":304.541,"cap99":61.534,"cap999":84.209,"pct":0.9444},{"rho":0.0075,"tag":"","el":232.99,"var99":309.435,"var999":338.243,"es99":322.15,"cap99":76.445,"cap999":105.253,"pct":0.9056},{"rho":0.01,"tag":"","el":232.99,"var99":322.33,"var999":356.608,"es99":337.448,"cap99":89.34,"cap999":123.617,"pct":0.875},{"rho":0.015,"tag":"","el":232.99,"var99":344.628,"var999":388.687,"es99":364.044,"cap99":111.637,"cap999":155.696,"pct":0.8312},{"rho":0.02,"tag":"","el":232.99,"var99":364.077,"var999":416.962,"es99":387.364,"cap99":131.087,"cap999":183.971,"pct":0.8015},{"rho":0.03,"tag":"","el":232.99,"var99":398.052,"var999":466.893,"es99":428.34,"cap99":165.061,"cap999":233.903,"pct":0.764},{"rho":0.04,"tag":"","el":232.99,"var99":428.017,"var999":511.38,"es99":464.673,"cap99":195.026,"cap999":278.389,"pct":0.7411},{"rho":0.05,"tag":"","el":232.99,"var99":455.431,"var999":552.342,"es99":498.029,"cap99":222.441,"cap999":319.352,"pct":0.7258},{"rho":0.06,"tag":"","el":232.99,"var99":481.042,"var999":590.762,"es99":529.259,"cap99":248.051,"cap999":357.771,"pct":0.7148},{"rho":0.07,"tag":"","el":232.99,"var99":505.292,"var999":627.22,"es99":558.869,"cap99":272.302,"cap999":394.229,"pct":0.7067},{"rho":0.070409,"tag":"reference","el":232.99,"var99":506.26,"var999":628.676,"es99":560.051,"cap99":273.27,"cap999":395.685,"pct":0.7064},{"rho":0.08,"tag":"","el":232.99,"var99":528.472,"var999":662.092,"es99":587.187,"cap99":295.482,"cap999":429.101,"pct":0.7005},{"rho":0.09,"tag":"","el":232.99,"var99":550.782,"var999":695.637,"es99":614.441,"cap99":317.791,"cap999":462.647,"pct":0.6957},{"rho":0.1,"tag":"","el":232.99,"var99":572.368,"var999":728.043,"es99":640.792,"cap99":339.378,"cap999":495.052,"pct":0.6919},{"rho":0.12,"tag":"","el":232.99,"var99":613.785,"var999":789.966,"es99":691.264,"cap99":380.795,"cap999":556.976,"pct":0.6866}],"loss_grid":[0.0,4.0,8.0,12.0,16.0,20.0,24.0,28.0,32.0,36.0,40.0,44.0,48.0,52.0,56.0,60.0,64.0,68.0,72.0,76.0,80.0,84.0,88.0,92.0,96.0,100.0,104.0,108.0,112.0,116.0,120.0,124.0,128.0,132.0,136.0,140.0,144.0,148.0,152.0,156.0,160.0,164.0,168.0,172.0,176.0,180.0,184.0,188.0,192.0,196.0,200.0,204.0,208.0,212.0,216.0,220.0,224.0,228.0,232.0,236.0,240.0,244.0,248.0,252.0,256.0,260.0,264.0,268.0,272.0,276.0,280.0,284.0,288.0,292.0,296.0,300.0,304.0,308.0,312.0,316.0,320.0,324.0,328.0,332.0,336.0,340.0,344.0,348.0,352.0,356.0,360.0,364.0,368.0,372.0,376.0,380.0,384.0,388.0,392.0,396.0,400.0,404.0,408.0,412.0,416.0,420.0,424.0,428.0,432.0,436.0,440.0,444.0,448.0,452.0,456.0,460.0,464.0,468.0,472.0,476.0,480.0,484.0,488.0,492.0,496.0,500.0,504.0,508.0,512.0,516.0,520.0,524.0,528.0,532.0,536.0,540.0,544.0,548.0,552.0,556.0,560.0,564.0,568.0,572.0,576.0,580.0,584.0,588.0,592.0,596.0,600.0,604.0,608.0,612.0,616.0,620.0,624.0,628.0,632.0,636.0,640.0,644.0,648.0,652.0,656.0,660.0,664.0,668.0,672.0,676.0,680.0,684.0,688.0,692.0,696.0,700.0,704.0,708.0,712.0,716.0,720.0,724.0,728.0,732.0,736.0,740.0,744.0,748.0,752.0,756.0,760.0,764.0,768.0,772.0,776.0,780.0,784.0,788.0,792.0,796.0,800.0],"density":[[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1e-06,3e-06,1.9e-05,8.5e-05,0.000319,0.000998,0.002637,0.005916,0.011346,0.018715,0.026696,0.033108,0.035878,0.034134,0.028639,0.02128,0.014061,0.008292,0.004381,0.002081,0.000891,0.000345,0.000121,3.9e-05,1.1e-05,3e-06,1e-06,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,2e-06,6e-06,1.8e-05,5.1e-05,0.000128,0.000295,0.000627,0.001226,0.002219,0.003729,0.005835,0.008528,0.011672,0.015001,0.018144,0.020703,0.022332,0.02282,0.022131,0.020408,0.017924,0.015018,0.012023,0.00921,0.00676,0.00476,0.003221,0.002095,0.001313,0.000793,0.000462,0.00026,0.000141,7.4e-05,3.8e-05,1.9e-05,9e-06,4e-06,2e-06,1e-06,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1e-06,2e-06,5e-06,1.2e-05,2.8e-05,6e-05,0.000121,0.000231,0.000417,0.000714,0.001162,0.001805,0.002678,0.003803,0.005182,0.006785,0.008552,0.010391,0.01219,0.013827,0.015183,0.016159,0.016689,0.016744,0.016336,0.015513,0.014354,0.01295,0.011403,0.009806,0.008243,0.006777,0.005453,0.004298,0.003319,0.002514,0.001868,0.001362,0.000976,0.000687,0.000475,0.000323,0.000216,0.000143,9.2e-05,5.9e-05,3.7e-05,2.3e-05,1.4e-05,9e-06,5e-06,3e-06,2e-06,1e-06,1e-06,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1e-06,4e-06,9e-06,2e-05,4.3e-05,8.8e-05,0.000169,0.000308,0.000532,0.000875,0.001376,0.002068,0.00298,0.004124,0.005491,0.007045,0.008725,0.010444,0.012099,0.013585,0.0148,0.015663,0.016119,0.016148,0.015763,0.015005,0.013942,0.012655,0.011229,0.009748,0.008285,0.006898,0.005629,0.004506,0.00354,0.002731,0.002069,0.001541,0.001129,0.000813,0.000577,0.000403,0.000277,0.000188,0.000125,8.3e-05,5.4e-05,3.4e-05,2.2e-05,1.4e-05,8e-06,5e-06,3e-06,2e-06,1e-06,1e-06,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1e-06,1e-06,3e-06,7e-06,1.5e-05,3e-05,5.7e-05,0.000103,0.000177,0.000293,0.000466,0.000714,0.001055,0.001506,0.002082,0.002792,0.003634,0.004601,0.00567,0.006812,0.007986,0.009144,0.010238,0.011217,0.012038,0.012664,0.013069,0.01324,0.013176,0.012889,0.012401,0.011742,0.010947,0.010054,0.009101,0.008123,0.007153,0.006216,0.005332,0.004518,0.003783,0.00313,0.00256,0.002071,0.001657,0.001312,0.001029,0.000798,0.000613,0.000467,0.000352,0.000263,0.000195,0.000143,0.000104,7.5e-05,5.4e-05,3.8e-05,2.7e-05,1.9e-05,1.3e-05,9e-06,6e-06,4e-06,3e-06,2e-06,1e-06,1e-06,1e-06,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1e-06,2e-06,3e-06,7e-06,1.4e-05,2.6e-05,4.7e-05,8.2e-05,0.000137,0.000219,0.000338,0.000505,0.000732,0.001029,0.001407,0.001872,0.00243,0.003078,0.003811,0.004617,0.005478,0.00637,0.007269,0.008144,0.008967,0.009709,0.010345,0.010854,0.01122,0.011434,0.011492,0.011399,0.011163,0.010798,0.010321,0.009752,0.009112,0.008423,0.007705,0.006977,0.006256,0.005557,0.00489,0.004265,0.003688,0.003161,0.002688,0.002267,0.001897,0.001575,0.001299,0.001063,0.000863,0.000697,0.000558,0.000445,0.000352,0.000277,0.000216,0.000168,0.00013,9.9e-05,7.6e-05,5.8e-05,4.3e-05,3.3e-05,2.4e-05,1.8e-05,1.3e-05,1e-05,7e-06,5e-06,4e-06,3e-06,2e-06,1e-06,1e-06,1e-06,1e-06,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1e-06,1e-06,3e-06,5e-06,1e-05,1.8e-05,3.2e-05,5.3e-05,8.6e-05,0.000134,0.000203,0.000297,0.000423,0.000587,0.000794,0.00105,0.001359,0.001722,0.002141,0.002612,0.003132,0.003693,0.004287,0.004901,0.005524,0.006142,0.006739,0.007304,0.007821,0.00828,0.00867,0.008983,0.009214,0.009359,0.009417,0.009391,0.009284,0.009102,0.008851,0.008541,0.008179,0.007775,0.00734,0.006881,0.006408,0.00593,0.005453,0.004984,0.004529,0.004092,0.003676,0.003285,0.00292,0.002583,0.002273,0.00199,0.001734,0.001505,0.001299,0.001117,0.000956,0.000815,0.000692,0.000585,0.000493,0.000413,0.000345,0.000287,0.000238,0.000197,0.000162,0.000133,0.000109,8.9e-05,7.2e-05,5.8e-05,4.7e-05,3.8e-05,3e-05,2.4e-05,1.9e-05,1.5e-05,1.2e-05,1e-05,8e-06,6e-06,5e-06,4e-06,3e-06,2e-06,2e-06,1e-06,1e-06,1e-06,1e-06,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1e-06,2e-06,4e-06,7e-06,1.3e-05,2.3e-05,3.8e-05,6.1e-05,9.4e-05,0.000141,0.000205,0.00029,0.0004,0.00054,0.000712,0.000919,0.001165,0.00145,0.001773,0.002134,0.00253,0.002956,0.003408,0.003878,0.004358,0.004842,0.00532,0.005783,0.006224,0.006635,0.007007,0.007335,0.007615,0.007841,0.008011,0.008124,0.00818,0.00818,0.008125,0.008019,0.007866,0.00767,0.007436,0.007169,0.006874,0.006557,0.006224,0.005878,0.005526,0.00517,0.004816,0.004467,0.004126,0.003795,0.003477,0.003173,0.002885,0.002613,0.002358,0.002121,0.001901,0.001698,0.001512,0.001342,0.001188,0.001048,0.000921,0.000808,0.000707,0.000616,0.000536,0.000465,0.000402,0.000347,0.000298,0.000256,0.000219,0.000187,0.00016,0.000136,0.000115,9.7e-05,8.2e-05,6.9e-05,5.8e-05,4.9e-05,4.1e-05,3.4e-05,2.8e-05,2.4e-05,2e-05,1.6e-05,1.3e-05,1.1e-05,9e-06,8e-06,6e-06,5e-06,4e-06,3e-06,3e-06,2e-06,2e-06,1e-06,1e-06,1e-06,1e-06,1e-06,1e-06,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1e-06,2e-06,4e-06,8e-06,1.4e-05,2.3e-05,3.8e-05,5.9e-05,8.9e-05,0.00013,0.000184,0.000254,0.000343,0.000451,0.000582,0.000737,0.000916,0.001121,0.00135,0.001604,0.001879,0.002175,0.002488,0.002815,0.003152,0.003495,0.003839,0.00418,0.004514,0.004836,0.005142,0.005429,0.005692,0.00593,0.00614,0.00632,0.006468,0.006583,0.006666,0.006716,0.006735,0.006722,0.006679,0.006608,0.006512,0.006391,0.006248,0.006086,0.005907,0.005714,0.005508,0.005292,0.005069,0.004841,0.004609,0.004376,0.004143,0.003911,0.003683,0.00346,0.003242,0.00303,0.002825,0.002628,0.002439,0.002259,0.002088,0.001926,0.001772,0.001628,0.001492,0.001365,0.001247,0.001136,0.001034,0.000939,0.000852,0.000771,0.000697,0.000628,0.000566,0.000509,0.000457,0.00041,0.000367,0.000328,0.000293,0.000261,0.000232,0.000206,0.000183,0.000162,0.000144,0.000127,0.000112,9.9e-05,8.7e-05,7.7e-05,6.7e-05,5.9e-05,5.2e-05,4.5e-05,4e-05,3.5e-05,3e-05,2.6e-05,2.3e-05,2e-05,1.7e-05,1.5e-05,1.3e-05,1.1e-05,1e-05,8e-06,7e-06,6e-06,5e-06,5e-06,4e-06,3e-06,3e-06,2e-06,2e-06,2e-06,2e-06,1e-06,1e-06,1e-06,1e-06,1e-06,1e-06,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1e-06,1e-06,3e-06,6e-06,1.1e-05,2e-05,3.3e-05,5.2e-05,7.9e-05,0.000115,0.000163,0.000224,0.0003,0.000392,0.000502,0.000631,0.000779,0.000946,0.001132,0.001336,0.001557,0.001793,0.002041,0.002301,0.002568,0.00284,0.003115,0.003389,0.00366,0.003925,0.00418,0.004424,0.004654,0.004867,0.005063,0.00524,0.005397,0.005532,0.005645,0.005735,0.005803,0.005849,0.005874,0.005877,0.005859,0.005823,0.005768,0.005695,0.005607,0.005505,0.005389,0.005262,0.005124,0.004978,0.004824,0.004664,0.004499,0.00433,0.004159,0.003986,0.003813,0.00364,0.003468,0.003299,0.003131,0.002968,0.002808,0.002652,0.0025,0.002354,0.002213,0.002077,0.001946,0.001821,0.001702,0.001588,0.00148,0.001378,0.00128,0.001189,0.001102,0.00102,0.000944,0.000872,0.000804,0.000741,0.000682,0.000628,0.000576,0.000529,0.000485,0.000444,0.000406,0.000371,0.000339,0.000309,0.000281,0.000256,0.000233,0.000212,0.000192,0.000174,0.000158,0.000143,0.000129,0.000117,0.000105,9.5e-05,8.6e-05,7.7e-05,7e-05,6.2e-05,5.6e-05,5e-05,4.5e-05,4.1e-05,3.6e-05,3.2e-05,2.9e-05,2.6e-05,2.3e-05,2.1e-05,1.8e-05,1.6e-05,1.5e-05,1.3e-05,1.2e-05,1e-05,9e-06,8e-06,7e-06,6e-06,6e-06,5e-06,4e-06,4e-06,3e-06,3e-06,3e-06,2e-06,2e-06,2e-06,2e-06,1e-06,1e-06,1e-06,1e-06,1e-06,1e-06,1e-06,1e-06,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],[0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,1e-06,2e-06,5e-06,1e-05,1.8e-05,3.1e-05,5e-05,7.6e-05,0.000112,0.000159,0.000218,0.000291,0.000379,0.000483,0.000603,0.000739,0.000891,0.001058,0.00124,0.001435,0.001641,0.001858,0.002081,0.002311,0.002544,0.002779,0.003012,0.003242,0.003467,0.003685,0.003894,0.004093,0.004279,0.004452,0.00461,0.004753,0.00488,0.00499,0.005084,0.005161,0.00522,0.005263,0.00529,0.0053,0.005296,0.005276,0.005243,0.005196,0.005138,0.005067,0.004987,0.004896,0.004797,0.004691,0.004578,0.004458,0.004334,0.004206,0.004074,0.00394,0.003804,0.003667,0.003529,0.003391,0.003254,0.003118,0.002984,0.002851,0.002721,0.002594,0.002469,0.002347,0.002229,0.002114,0.002003,0.001896,0.001792,0.001692,0.001596,0.001504,0.001416,0.001332,0.001252,0.001175,0.001102,0.001032,0.000966,0.000904,0.000845,0.000789,0.000736,0.000686,0.000639,0.000594,0.000553,0.000514,0.000477,0.000442,0.00041,0.00038,0.000352,0.000325,0.000301,0.000278,0.000256,0.000237,0.000218,0.000201,0.000185,0.00017,0.000156,0.000144,0.000132,0.000121,0.000111,0.000102,9.3e-05,8.5e-05,7.8e-05,7.1e-05,6.5e-05,6e-05,5.4e-05,5e-05,4.5e-05,4.1e-05,3.7e-05,3.4e-05,3.1e-05,2.8e-05,2.6e-05,2.3e-05,2.1e-05,1.9e-05,1.7e-05,1.6e-05,1.4e-05,1.3e-05,1.2e-05,1.1e-05,1e-05,9e-06,8e-06,7e-06,6e-06,6e-06,5e-06,5e-06,4e-06,4e-06,3e-06,3e-06,3e-06,2e-06,2e-06,2e-06,2e-06,2e-06,1e-06,1e-06,1e-06,1e-06,1e-06,1e-06,1e-06,1e-06,1e-06,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],[0.0,0.0,0.0,0.0,0.0,0.0,1e-06,2e-06,6e-06,1.1e-05,2.1e-05,3.6e-05,5.9e-05,9e-05,0.000131,0.000184,0.00025,0.000329,0.000423,0.000532,0.000655,0.000792,0.000943,0.001107,0.001281,0.001466,0.001659,0.001859,0.002063,0.002271,0.002479,0.002686,0.002892,0.003092,0.003287,0.003475,0.003654,0.003824,0.003983,0.00413,0.004265,0.004387,0.004496,0.004591,0.004673,0.00474,0.004794,0.004835,0.004863,0.004878,0.00488,0.004871,0.00485,0.004819,0.004778,0.004727,0.004668,0.0046,0.004526,0.004444,0.004357,0.004264,0.004167,0.004065,0.003961,0.003853,0.003743,0.003631,0.003518,0.003404,0.00329,0.003175,0.003061,0.002948,0.002836,0.002725,0.002616,0.002508,0.002403,0.002299,0.002198,0.0021,0.002004,0.001911,0.00182,0.001733,0.001648,0.001566,0.001487,0.001411,0.001337,0.001267,0.001199,0.001134,0.001072,0.001013,0.000956,0.000901,0.00085,0.0008,0.000753,0.000709,0.000666,0.000626,0.000588,0.000552,0.000517,0.000485,0.000454,0.000425,0.000398,0.000372,0.000348,0.000325,0.000303,0.000283,0.000264,0.000246,0.000229,0.000213,0.000199,0.000185,0.000172,0.00016,0.000148,0.000138,0.000128,0.000118,0.00011,0.000102,9.4e-05,8.7e-05,8.1e-05,7.5e-05,6.9e-05,6.4e-05,5.9e-05,5.4e-05,5e-05,4.6e-05,4.3e-05,3.9e-05,3.6e-05,3.3e-05,3.1e-05,2.8e-05,2.6e-05,2.4e-05,2.2e-05,2e-05,1.8e-05,1.7e-05,1.5e-05,1.4e-05,1.3e-05,1.2e-05,1.1e-05,1e-05,9e-06,8e-06,8e-06,7e-06,6e-06,6e-06,5e-06,5e-06,4e-06,4e-06,4e-06,3e-06,3e-06,3e-06,2e-06,2e-06,2e-06,2e-06,2e-06,2e-06,1e-06,1e-06,1e-06,1e-06,1e-06,1e-06,1e-06,1e-06,1e-06,1e-06,1e-06,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0],[0.0,0.0,0.0,0.0,0.0,1e-06,4e-06,9e-06,1.9e-05,3.5e-05,5.8e-05,9e-05,0.000134,0.000189,0.000257,0.00034,0.000436,0.000546,0.000669,0.000805,0.000953,0.001112,0.00128,0.001456,0.001638,0.001825,0.002015,0.002206,0.002396,0.002585,0.00277,0.00295,0.003125,0.003292,0.003451,0.003602,0.003742,0.003873,0.003992,0.0041,0.004197,0.004282,0.004356,0.004417,0.004468,0.004507,0.004535,0.004553,0.00456,0.004557,0.004544,0.004523,0.004493,0.004455,0.00441,0.004358,0.004299,0.004235,0.004165,0.004091,0.004012,0.003929,0.003843,0.003754,0.003663,0.00357,0.003475,0.003379,0.003282,0.003184,0.003086,0.002988,0.002891,0.002794,0.002698,0.002603,0.002509,0.002416,0.002325,0.002235,0.002148,0.002062,0.001978,0.001896,0.001816,0.001738,0.001663,0.00159,0.001518,0.00145,0.001383,0.001319,0.001257,0.001197,0.001139,0.001083,0.00103,0.000978,0.000929,0.000882,0.000836,0.000793,0.000751,0.000712,0.000674,0.000637,0.000603,0.00057,0.000538,0.000508,0.00048,0.000453,0.000427,0.000402,0.000379,0.000357,0.000336,0.000316,0.000297,0.000279,0.000263,0.000247,0.000232,0.000217,0.000204,0.000191,0.000179,0.000168,0.000157,0.000147,0.000138,0.000129,0.00012,0.000113,0.000105,9.8e-05,9.2e-05,8.6e-05,8e-05,7.5e-05,6.9e-05,6.5e-05,6e-05,5.6e-05,5.2e-05,4.9e-05,4.5e-05,4.2e-05,3.9e-05,3.6e-05,3.4e-05,3.1e-05,2.9e-05,2.7e-05,2.5e-05,2.3e-05,2.1e-05,2e-05,1.8e-05,1.7e-05,1.6e-05,1.5e-05,1.4e-05,1.2e-05,1.2e-05,1.1e-05,1e-05,9e-06,8e-06,8e-06,7e-06,7e-06,6e-06,6e-06,5e-06,5e-06,4e-06,4e-06,4e-06,3e-06,3e-06,3e-06,3e-06,2e-06,2e-06,2e-06,2e-06,2e-06,2e-06,1e-06,1e-06,1e-06,1e-06,1e-06,1e-06,1e-06,1e-06,1e-06,1e-06,1e-06,1e-06],[0.0,0.0,0.0,0.0,0.0,2e-06,4e-06,1e-05,2e-05,3.6e-05,6e-05,9.3e-05,0.000137,0.000194,0.000263,0.000347,0.000444,0.000555,0.00068,0.000817,0.000966,0.001125,0.001294,0.00147,0.001652,0.001839,0.002028,0.002218,0.002408,0.002596,0.00278,0.002959,0.003132,0.003299,0.003456,0.003605,0.003744,0.003873,0.003991,0.004098,0.004193,0.004277,0.00435,0.00441,0.00446,0.004498,0.004525,0.004542,0.004548,0.004545,0.004532,0.00451,0.00448,0.004442,0.004397,0.004345,0.004286,0.004222,0.004152,0.004078,0.003999,0.003917,0.003832,0.003743,0.003652,0.003559,0.003465,0.003369,0.003273,0.003176,0.003078,0.002981,0.002884,0.002788,0.002692,0.002598,0.002504,0.002412,0.002321,0.002232,0.002145,0.00206,0.001976,0.001895,0.001815,0.001738,0.001663,0.00159,0.001519,0.001451,0.001384,0.00132,0.001258,0.001199,0.001141,0.001086,0.001032,0.000981,0.000932,0.000885,0.000839,0.000796,0.000754,0.000715,0.000677,0.00064,0.000606,0.000573,0.000541,0.000511,0.000483,0.000455,0.00043,0.000405,0.000382,0.00036,0.000339,0.000319,0.0003,0.000282,0.000265,0.000249,0.000234,0.00022,0.000206,0.000193,0.000181,0.00017,0.000159,0.000149,0.00014,0.000131,0.000122,0.000114,0.000107,0.0001,9.3e-05,8.7e-05,8.1e-05,7.6e-05,7.1e-05,6.6e-05,6.1e-05,5.7e-05,5.3e-05,5e-05,4.6e-05,4.3e-05,4e-05,3.7e-05,3.4e-05,3.2e-05,3e-05,2.8e-05,2.6e-05,2.4e-05,2.2e-05,2e-05,1.9e-05,1.8e-05,1.6e-05,1.5e-05,1.4e-05,1.3e-05,1.2e-05,1.1e-05,1e-05,9e-06,9e-06,8e-06,7e-06,7e-06,6e-06,6e-06,5e-06,5e-06,4e-06,4e-06,4e-06,3e-06,3e-06,3e-06,3e-06,2e-06,2e-06,2e-06,2e-06,2e-06,2e-06,1e-06,1e-06,1e-06,1e-06,1e-06,1e-06,1e-06,1e-06,1e-06,1e-06,1e-06,1e-06],[0.0,0.0,0.0,0.0,2e-06,5e-06,1.3e-05,2.7e-05,4.8e-05,7.9e-05,0.000121,0.000176,0.000245,0.000327,0.000423,0.000532,0.000654,0.000789,0.000934,0.001088,0.001251,0.00142,0.001593,0.00177,0.001949,0.002128,0.002306,0.002481,0.002652,0.002818,0.002979,0.003132,0.003277,0.003414,0.003542,0.003661,0.003769,0.003868,0.003957,0.004035,0.004103,0.004161,0.004209,0.004247,0.004275,0.004294,0.004304,0.004306,0.004299,0.004285,0.004263,0.004234,0.004198,0.004157,0.00411,0.004057,0.004,0.003939,0.003873,0.003804,0.003732,0.003657,0.00358,0.0035,0.003419,0.003336,0.003252,0.003168,0.003083,0.002997,0.002911,0.002826,0.00274,0.002656,0.002571,0.002488,0.002406,0.002325,0.002244,0.002166,0.002088,0.002012,0.001938,0.001865,0.001794,0.001725,0.001657,0.001591,0.001527,0.001464,0.001404,0.001345,0.001288,0.001233,0.001179,0.001128,0.001078,0.00103,0.000983,0.000938,0.000895,0.000854,0.000814,0.000775,0.000738,0.000703,0.000669,0.000636,0.000605,0.000575,0.000546,0.000519,0.000492,0.000467,0.000443,0.00042,0.000398,0.000377,0.000357,0.000338,0.00032,0.000303,0.000287,0.000271,0.000256,0.000242,0.000229,0.000216,0.000204,0.000192,0.000181,0.000171,0.000161,0.000152,0.000143,0.000135,0.000127,0.000119,0.000112,0.000106,9.9e-05,9.3e-05,8.8e-05,8.2e-05,7.7e-05,7.3e-05,6.8e-05,6.4e-05,6e-05,5.6e-05,5.3e-05,4.9e-05,4.6e-05,4.3e-05,4e-05,3.8e-05,3.5e-05,3.3e-05,3.1e-05,2.9e-05,2.7e-05,2.5e-05,2.4e-05,2.2e-05,2.1e-05,1.9e-05,1.8e-05,1.7e-05,1.6e-05,1.4e-05,1.3e-05,1.3e-05,1.2e-05,1.1e-05,1e-05,9e-06,9e-06,8e-06,8e-06,7e-06,7e-06,6e-06,6e-06,5e-06,5e-06,4e-06,4e-06,4e-06,4e-06,3e-06,3e-06,3e-06,3e-06,2e-06,2e-06,2e-06,2e-06,2e-06,2e-06,1e-06,1e-06],[0.0,0.0,0.0,2e-06,6e-06,1.5e-05,3.2e-05,5.9e-05,9.7e-05,0.000149,0.000214,0.000294,0.000388,0.000496,0.000616,0.000748,0.00089,0.001041,0.0012,0.001363,0.001531,0.001702,0.001873,0.002044,0.002212,0.002378,0.00254,0.002696,0.002846,0.002989,0.003125,0.003253,0.003372,0.003483,0.003584,0.003676,0.003759,0.003832,0.003897,0.003952,0.003998,0.004035,0.004064,0.004084,0.004096,0.004101,0.004098,0.004089,0.004073,0.00405,0.004022,0.003988,0.003949,0.003906,0.003858,0.003806,0.003751,0.003692,0.00363,0.003565,0.003499,0.00343,0.003359,0.003287,0.003213,0.003139,0.003064,0.002988,0.002912,0.002835,0.002759,0.002683,0.002607,0.002532,0.002457,0.002383,0.00231,0.002237,0.002166,0.002096,0.002026,0.001958,0.001892,0.001826,0.001762,0.0017,0.001639,0.001579,0.001521,0.001464,0.001408,0.001355,0.001302,0.001251,0.001202,0.001154,0.001108,0.001063,0.001019,0.000977,0.000936,0.000897,0.000859,0.000822,0.000786,0.000752,0.000719,0.000687,0.000657,0.000627,0.000599,0.000572,0.000546,0.00052,0.000496,0.000473,0.000451,0.00043,0.000409,0.000389,0.000371,0.000353,0.000336,0.000319,0.000303,0.000288,0.000274,0.00026,0.000247,0.000234,0.000223,0.000211,0.0002,0.00019,0.00018,0.000171,0.000162,0.000153,0.000145,0.000137,0.00013,0.000123,0.000116,0.00011,0.000104,9.8e-05,9.3e-05,8.8e-05,8.3e-05,7.8e-05,7.4e-05,7e-05,6.6e-05,6.2e-05,5.8e-05,5.5e-05,5.2e-05,4.9e-05,4.6e-05,4.3e-05,4.1e-05,3.8e-05,3.6e-05,3.4e-05,3.2e-05,3e-05,2.8e-05,2.6e-05,2.5e-05,2.3e-05,2.2e-05,2.1e-05,1.9e-05,1.8e-05,1.7e-05,1.6e-05,1.5e-05,1.4e-05,1.3e-05,1.2e-05,1.1e-05,1.1e-05,1e-05,9e-06,9e-06,8e-06,8e-06,7e-06,7e-06,6e-06,6e-06,5e-06,5e-06,5e-06,4e-06,4e-06,4e-06,4e-06,3e-06,3e-06,3e-06],[0.0,0.0,1e-06,5e-06,1.5e-05,3.4e-05,6.5e-05,0.00011,0.00017,0.000245,0.000335,0.00044,0.000558,0.000687,0.000827,0.000976,0.001131,0.001292,0.001456,0.001622,0.001788,0.001953,0.002117,0.002276,0.002431,0.002581,0.002724,0.002861,0.00299,0.003112,0.003225,0.00333,0.003426,0.003514,0.003593,0.003663,0.003725,0.003778,0.003823,0.00386,0.003889,0.00391,0.003924,0.003931,0.003932,0.003926,0.003914,0.003896,0.003873,0.003846,0.003813,0.003776,0.003735,0.003691,0.003643,0.003592,0.003538,0.003481,0.003423,0.003362,0.0033,0.003236,0.003171,0.003104,0.003037,0.002969,0.002901,0.002832,0.002763,0.002694,0.002625,0.002557,0.002488,0.00242,0.002353,0.002286,0.00222,0.002155,0.002091,0.002027,0.001965,0.001903,0.001843,0.001784,0.001726,0.001669,0.001613,0.001559,0.001506,0.001454,0.001403,0.001353,0.001305,0.001258,0.001212,0.001168,0.001125,0.001083,0.001042,0.001002,0.000964,0.000926,0.00089,0.000855,0.000822,0.000789,0.000757,0.000727,0.000697,0.000668,0.000641,0.000614,0.000588,0.000564,0.00054,0.000517,0.000495,0.000473,0.000453,0.000433,0.000414,0.000396,0.000378,0.000361,0.000345,0.000329,0.000314,0.0003,0.000286,0.000273,0.00026,0.000248,0.000237,0.000226,0.000215,0.000205,0.000195,0.000186,0.000177,0.000168,0.00016,0.000152,0.000145,0.000138,0.000131,0.000124,0.000118,0.000112,0.000106,0.000101,9.6e-05,9.1e-05,8.6e-05,8.2e-05,7.8e-05,7.4e-05,7e-05,6.6e-05,6.3e-05,5.9e-05,5.6e-05,5.3e-05,5e-05,4.8e-05,4.5e-05,4.3e-05,4e-05,3.8e-05,3.6e-05,3.4e-05,3.2e-05,3e-05,2.9e-05,2.7e-05,2.6e-05,2.4e-05,2.3e-05,2.1e-05,2e-05,1.9e-05,1.8e-05,1.7e-05,1.6e-05,1.5e-05,1.4e-05,1.3e-05,1.3e-05,1.2e-05,1.1e-05,1e-05,1e-05,9e-06,9e-06,8e-06,8e-06,7e-06,7e-06,6e-06,6e-06,6e-06,5e-06],[0.0,1e-06,7e-06,2.5e-05,6e-05,0.000114,0.000187,0.000279,0.000388,0.000511,0.000646,0.000792,0.000945,0.001104,0.001267,0.00143,0.001594,0.001756,0.001916,0.002071,0.002221,0.002365,0.002503,0.002634,0.002757,0.002873,0.00298,0.00308,0.003171,0.003254,0.003329,0.003396,0.003455,0.003507,0.003551,0.003588,0.003617,0.003641,0.003657,0.003668,0.003673,0.003672,0.003666,0.003656,0.00364,0.00362,0.003596,0.003569,0.003538,0.003503,0.003466,0.003426,0.003383,0.003338,0.003291,0.003242,0.003192,0.00314,0.003086,0.003032,0.002976,0.00292,0.002863,0.002806,0.002748,0.00269,0.002632,0.002574,0.002516,0.002458,0.0024,0.002342,0.002285,0.002228,0.002172,0.002116,0.002061,0.002007,0.001953,0.0019,0.001848,0.001796,0.001746,0.001696,0.001647,0.001599,0.001552,0.001506,0.001461,0.001417,0.001373,0.001331,0.001289,0.001249,0.001209,0.001171,0.001133,0.001096,0.00106,0.001025,0.000991,0.000958,0.000926,0.000895,0.000864,0.000834,0.000806,0.000778,0.00075,0.000724,0.000698,0.000673,0.000649,0.000626,0.000603,0.000581,0.00056,0.000539,0.000519,0.0005,0.000481,0.000463,0.000446,0.000429,0.000412,0.000396,0.000381,0.000366,0.000352,0.000338,0.000325,0.000312,0.0003,0.000288,0.000276,0.000265,0.000255,0.000244,0.000234,0.000225,0.000215,0.000207,0.000198,0.00019,0.000182,0.000174,0.000167,0.00016,0.000153,0.000146,0.00014,0.000134,0.000128,0.000123,0.000117,0.000112,0.000107,0.000103,9.8e-05,9.4e-05,9e-05,8.6e-05,8.2e-05,7.8e-05,7.5e-05,7.1e-05,6.8e-05,6.5e-05,6.2e-05,5.9e-05,5.6e-05,5.4e-05,5.1e-05,4.9e-05,4.6e-05,4.4e-05,4.2e-05,4e-05,3.8e-05,3.6e-05,3.5e-05,3.3e-05,3.1e-05,3e-05,2.8e-05,2.7e-05,2.6e-05,2.4e-05,2.3e-05,2.2e-05,2.1e-05,2e-05,1.9e-05,1.8e-05,1.7e-05,1.6e-05,1.5e-05,1.5e-05,1.4e-05,1.3e-05,1.2e-05]],"policy":{"shares":[0.0,0.01,0.02,0.03,0.04,0.05,0.06,0.07,0.08,0.09,0.1,0.11,0.12,0.13,0.14,0.15,0.16,0.17,0.18,0.19,0.2,0.21,0.22,0.23,0.24,0.25,0.26,0.27,0.28,0.29,0.3],"rankings":[{"key":"gbm","label":"Gradient boosting","net_pnl":[229.915,232.078,232.706,233.117,232.949,232.647,232.47,231.753,231.138,230.251,229.161,227.758,226.523,225.541,224.41,223.387,221.743,220.282,218.8,216.774,215.078,213.278,211.628,209.675,207.874,206.306,204.184,202.318,200.351,198.284,196.214],"principal_loss":[273.752,264.088,256.346,248.872,242.1,235.624,229.217,223.359,217.637,211.984,206.803,201.971,197.055,191.879,187.03,182.131,177.722,173.151,168.859,165.071,161.052,157.274,153.294,149.573,145.806,141.941,138.599,134.912,131.346,127.953,124.533],"funded":[3620.636,3585.151,3550.435,3515.672,3480.823,3446.308,3411.861,3377.975,3344.357,3310.243,3277.258,3243.797,3210.624,3176.657,3143.613,3110.857,3077.198,3043.487,3010.759,2977.616,2944.854,2912.27,2879.51,2846.522,2813.308,2780.882,2748.091,2714.833,2681.398,2648.328,2614.976],"default_rate":[0.14884,0.14597,0.1436,0.14135,0.13937,0.13741,0.1355,0.1337,0.13194,0.13023,0.12856,0.12706,0.1255,0.12387,0.12231,0.12066,0.11931,0.11774,0.11618,0.11497,0.11359,0.11214,0.11075,0.10938,0.10808,0.10663,0.10544,0.10403,0.10279,0.1016,0.10034],"loans":[282787,279959,277131,274303,271476,268648,265820,262992,260164,257336,254508,251680,248853,246025,243197,240369,237541,234713,231885,229057,226230,223402,220574,217746,214918,212090,209262,206435,203607,200779,197951],"expected_loss":[232.99,224.557,217.573,211.127,205.057,199.35,193.915,188.781,183.89,179.097,174.61,170.214,165.985,161.788,157.813,153.982,150.136,146.39,142.846,139.348,135.976,132.698,129.475,126.299,123.17,120.182,117.238,114.309,111.425,108.627,105.865],"cap_data":[80.957,79.297,77.736,76.214,74.724,73.279,71.867,70.503,69.176,67.852,66.591,65.335,64.109,62.875,61.691,60.535,59.36,58.203,57.096,55.992,54.917,53.861,52.813,51.771,50.734,49.736,48.743,47.747,46.758,45.791,44.829],"cap_ref":[395.685,389.351,383.14,376.962,370.825,364.804,358.864,353.069,347.392,341.679,336.201,330.71,325.315,319.854,314.584,309.412,304.131,298.902,293.876,288.839,283.91,279.051,274.206,269.369,264.538,259.866,255.203,250.505,245.825,241.232,236.646]},{"key":"pit","label":"Point-in-time model","net_pnl":[229.915,231.425,232.48,232.516,232.574,232.133,231.95,231.587,230.581,229.968,229.107,228.721,228.094,227.19,225.78,224.42,222.842,221.312,219.98,218.653,217.297,215.584,213.712,212.436,210.868,209.153,207.279,205.29,203.683,201.149,199.48],"principal_loss":[273.752,266.276,259.284,253.271,247.453,241.87,236.087,230.52,225.598,220.517,215.647,210.379,205.23,200.583,196.378,192.077,188.026,184.062,179.818,175.644,171.373,167.6,163.855,159.695,155.89,152.296,148.837,145.334,141.685,138.702,135.147],"funded":[3620.636,3591.369,3561.776,3531.652,3502.232,3471.472,3440.78,3409.901,3378.967,3348.848,3318.543,3287.861,3256.801,3226.43,3195.3,3164.49,3133.712,3103.326,3072.149,3040.905,3009.371,2978.289,2946.185,2914.317,2882.881,2851.919,2820.78,2788.526,2756.913,2724.337,2692.494],"default_rate":[0.14884,0.14644,0.1443,0.14244,0.1407,0.13909,0.13734,0.13565,0.13402,0.13242,0.13086,0.12912,0.12753,0.12604,0.12479,0.12341,0.12212,0.12083,0.11952,0.11818,0.11673,0.11553,0.11438,0.11307,0.11181,0.1105,0.1093,0.1081,0.10676,0.10572,0.10441],"loans":[282787,279959,277131,274303,271476,268648,265820,262992,260164,257336,254508,251680,248853,246025,243197,240369,237541,234713,231885,229057,226230,223402,220574,217746,214918,212090,209262,206435,203607,200779,197951],"expected_loss":[232.99,226.874,221.448,216.259,211.395,206.492,201.808,197.23,192.79,188.574,184.421,180.359,176.367,172.526,168.722,164.995,161.392,157.923,154.43,150.993,147.574,144.324,141.018,137.791,134.646,131.658,128.682,125.68,122.786,119.85,117.051],"cap_data":[80.957,79.627,78.343,77.072,75.854,74.601,73.376,72.162,70.967,69.815,68.671,67.532,66.396,65.296,64.188,63.098,62.028,60.987,59.93,58.882,57.832,56.817,55.781,54.76,53.762,52.798,51.834,50.852,49.898,48.924,47.988],"cap_ref":[395.685,390.404,385.151,379.89,374.798,369.522,364.32,359.137,353.999,349.019,344.058,339.08,334.088,329.245,324.329,319.482,314.696,310.02,305.257,300.515,295.753,291.121,286.375,281.69,277.094,272.628,268.16,263.58,259.121,254.554,250.147]},{"key":"grade","label":"Lending Club grade","net_pnl":[229.915,230.358,229.979,229.457,228.324,226.944,226.347,224.821,222.826,221.509,219.469,218.308,216.754,214.963,213.156,211.328,209.348,207.561,205.505,203.43,201.335,199.506,197.558,195.143,193.048,191.039,188.723,186.48,184.608,182.564,180.255],"principal_loss":[273.752,265.678,258.143,250.865,244.001,237.612,231.006,225.357,219.971,214.287,209.354,203.853,198.768,194.239,189.816,185.219,181.023,176.92,172.938,169.072,165.085,160.915,156.821,153.11,149.127,145.289,141.794,138.337,134.578,130.936,127.591],"funded":[3620.636,3589.673,3553.728,3516.917,3479.157,3442.196,3406.496,3371.312,3335.31,3300.062,3265.688,3231.727,3197.622,3163.958,3130.7,3096.81,3063.334,3030.143,2996.634,2963.443,2929.028,2894.31,2859.62,2824.278,2789.042,2754.489,2719.753,2685.755,2651.418,2617.522,2583.693],"default_rate":[0.14884,0.14631,0.14433,0.14248,0.14082,0.13924,0.13754,0.13599,0.13465,0.13315,0.1318,0.1302,0.12874,0.12756,0.12633,0.12505,0.12382,0.12252,0.12137,0.1201,0.1188,0.11749,0.11617,0.11496,0.11377,0.11246,0.11139,0.11024,0.10888,0.10765,0.10645],"loans":[282787,279959,277131,274303,271476,268648,265820,262992,260164,257336,254508,251680,248853,246025,243197,240369,237541,234713,231885,229057,226230,223402,220574,217746,214918,212090,209262,206435,203607,200779,197951],"expected_loss":[232.99,227.053,221.024,215.096,209.293,203.993,198.988,194.191,189.546,185.024,180.749,176.505,172.277,168.368,164.472,160.51,156.857,153.482,150.102,146.753,143.371,140.036,136.747,133.408,130.071,126.955,124.046,121.15,118.222,115.331,112.469],"cap_data":[80.957,79.553,78.033,76.5,74.965,73.546,72.188,70.865,69.545,68.26,67.023,65.8,64.575,63.407,62.248,61.07,59.964,58.921,57.874,56.835,55.775,54.717,53.669,52.601,51.537,50.52,49.539,48.569,47.587,46.618,45.656],"cap_ref":[395.685,389.922,383.529,377.025,370.45,364.342,358.465,352.702,346.887,341.218,335.723,330.295,324.853,319.591,314.383,309.085,304.071,299.308,294.514,289.764,284.884,279.998,275.147,270.196,265.264,260.51,255.857,251.269,246.625,242.046,237.489]}],"book":{"net_pnl":229.915,"return":0.0635}},"rule":{"declined_share":0.01079,"funded_declined":36.209,"default_rate":0.39613,"net_pnl":-1.751},"grades":[{"grade":"A","loans":70100,"funded":1014.474,"mean_pd":0.05528,"default_rate":0.05424,"realised_return":0.06826,"share_funded":0.28019,"share_el":0.1041,"share_tail":0.13838},{"grade":"B","loans":91645,"funded":1147.172,"mean_pd":0.10528,"default_rate":0.11895,"realised_return":0.07282,"share_funded":0.31684,"share_el":0.2421,"share_tail":0.27073},{"grade":"C","loans":77348,"funded":919.734,"mean_pd":0.16849,"default_rate":0.19443,"realised_return":0.06265,"share_funded":0.25403,"share_el":0.33495,"share_tail":0.3229},{"grade":"D","loans":32668,"funded":401.614,"mean_pd":0.2324,"default_rate":0.26212,"realised_return":0.04504,"share_funded":0.11092,"share_el":0.21942,"share_tail":0.18898},{"grade":"E","loans":9424,"funded":121.092,"mean_pd":0.27914,"default_rate":0.32842,"realised_return":0.01592,"share_funded":0.03344,"share_el":0.08478,"share_tail":0.06802},{"grade":"F","loans":1358,"funded":14.18,"mean_pd":0.32056,"default_rate":0.42415,"realised_return":-0.02566,"share_funded":0.00392,"share_el":0.01233,"share_tail":0.00933},{"grade":"G","loans":244,"funded":2.369,"mean_pd":0.35582,"default_rate":0.46311,"realised_return":-0.06424,"share_funded":0.00065,"share_el":0.00231,"share_tail":0.00167}]};
+
+/* ---------- helpers ---------- */
+const $ = (s, root = document) => root.querySelector(s);
+const NS = "http://www.w3.org/2000/svg";
+function node(tag, attrs = {}, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function label(parent, x, y, text, cls, anchor = "start", extra = {}) {
+  const t = node("text", { x, y, class: cls, "text-anchor": anchor, ...extra }, parent);
+  t.textContent = text;
+  return t;
+}
+const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+function scale(d0, d1, r0, r1) {
+  const f = (v) => r0 + ((v - d0) / (d1 - d0)) * (r1 - r0);
+  f.invert = (p) => d0 + ((p - r0) / (r1 - r0)) * (d1 - d0);
+  return f;
+}
+function niceTicks(lo, hi, n = 5) {
+  const raw = (hi - lo) / n;
+  const mag = 10 ** Math.floor(Math.log10(raw));
+  const err = raw / mag;
+  const step = (err >= 7.5 ? 10 : err >= 3.5 ? 5 : err >= 1.5 ? 2 : 1) * mag;
+  const out = [];
+  for (let v = Math.ceil(lo / step - 1e-9) * step; v <= hi + step * 1e-6; v += step) out.push(+v.toFixed(10));
+  // always end on a tick at or above the highest value, so marks never run past the axis
+  if (out.length === 0 || out[out.length - 1] < hi - step * 1e-6) out.push(+((out.length ? out[out.length - 1] : Math.floor(lo / step) * step) + step).toFixed(10));
+  return out;
+}
+const MINUS = "−";
+const money = (v, d = 0) => (v < 0 ? MINUS : "") + "$" + Math.abs(v).toLocaleString("en-US", { minimumFractionDigits: d, maximumFractionDigits: d }) + "m";
+const signedMoney = (v, d = 1) => {
+  const r = +v.toFixed(d);
+  return (r > 0 ? "+" : r < 0 ? MINUS : "") + "$" + Math.abs(r).toFixed(d) + "m";
+};
+const pct = (v, d = 0) => (v * 100).toFixed(d) + "%";
+const signedPct = (v, d = 1) => {
+  const r = +(v * 100).toFixed(d);
+  return (r > 0 ? "+" : r < 0 ? MINUS : "") + Math.abs(r).toFixed(d) + "%";
+};
+const billions = (vm) => "$" + (vm / 1000).toFixed(1) + "bn";
+const ordinal = (n) => {
+  const s = ["th", "st", "nd", "rd"], v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+};
+const rhoText = (r) => (r * 100).toFixed(r < 0.01 ? 2 : 1) + "%";
+// Where the actual loss sits in the distribution; past the 99.5th the rounded ordinal would mislead.
+const percentileText = (p) => p >= 0.999 ? "Beyond the 99.9th" : p >= 0.995 ? "Beyond the 99.5th" : ordinal(Math.round(p * 100));
+
+/* ---------- tooltip ---------- */
+const tip = $("#tip");
+function showTip(evt, title, rows) {
+  tip.replaceChildren();
+  if (title) {
+    const h = document.createElement("div");
+    h.className = "tip-title";
+    h.textContent = title;
+    tip.appendChild(h);
+  }
+  for (const r of rows) {
+    const row = document.createElement("div");
+    row.className = "tip-row";
+    if (r.color) {
+      const k = document.createElement("span");
+      k.className = "tip-key" + (r.dash ? " dash" : "");
+      k.style.borderTopColor = r.color;
+      row.appendChild(k);
+    }
+    const v = document.createElement("strong");
+    v.textContent = r.value;
+    const l = document.createElement("span");
+    l.className = "tip-label";
+    l.textContent = r.label;
+    row.append(v, l);
+    tip.appendChild(row);
+  }
+  tip.hidden = false;
+  let cx = evt.clientX, cy = evt.clientY;
+  if (cx === undefined || (cx === 0 && cy === 0 && evt.target && evt.target.getBoundingClientRect)) {
+    const b = evt.target.getBoundingClientRect();
+    cx = b.left + b.width / 2;
+    cy = b.top;
+  }
+  const w = tip.offsetWidth, h = tip.offsetHeight, pad = 14;
+  let x = cx + pad, y = cy + pad;
+  if (x + w > innerWidth - 8) x = cx - w - pad;
+  if (y + h > innerHeight - 8) y = cy - h - pad;
+  tip.style.left = Math.max(8, x) + "px";
+  tip.style.top = Math.max(8, y) + "px";
+}
+const hideTip = () => { tip.hidden = true; };
+
+/* ---------- chart frame ---------- */
+function frame(box, height, m) {
+  box.replaceChildren();
+  const W = Math.max(260, Math.floor(box.clientWidth));
+  const svg = node("svg", { width: W, height, viewBox: `0 0 ${W} ${height}` }, box);
+  return { svg, W, H: height, x0: m.l, x1: W - m.r, y0: height - m.b, y1: m.t };
+}
+function yAxis(f, sy, ticks, fmt) {
+  for (const t of ticks) {
+    node("line", { x1: f.x0, x2: f.x1, y1: sy(t), y2: sy(t), class: "grid-line" }, f.svg);
+    label(f.svg, f.x0 - 8, sy(t) + 4, fmt(t), "tick", "end");
+  }
+}
+function xAxis(f, sx, ticks, fmt, title) {
+  node("line", { x1: f.x0, x2: f.x1, y1: f.y0, y2: f.y0, class: "base-line" }, f.svg);
+  for (const t of ticks) label(f.svg, sx(t), f.y0 + 16, fmt(t), "tick", "middle");
+  if (title) label(f.svg, (f.x0 + f.x1) / 2, f.y0 + 34, title, "axis-title", "middle");
+}
+function pathFrom(xs, ys) {
+  return xs.map((x, i) => (i ? "L" : "M") + x.toFixed(1) + "," + ys[i].toFixed(1)).join("");
+}
+function barPath(x, y, w, h, r, dir = "up") {
+  r = Math.min(r, w / 2, Math.abs(h));
+  if (h <= 0.5) return `M${x},${y}h${w}`;
+  if (dir === "up") return `M${x},${y + h}V${y + r}Q${x},${y} ${x + r},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h}Z`;
+  // right-pointing bar: x is the baseline, w the length, h the thickness
+  return `M${x},${y}H${x + w - r}Q${x + w},${y} ${x + w},${y + r}V${y + h - r}Q${x + w},${y + h} ${x + w - r},${y + h}H${x}Z`;
+}
+
+/* ---------- static text from the data ---------- */
+const P = D.policy;
+const idxOfShare = (s) => P.shares.findIndex((v) => Math.abs(v - s) < 1e-6);
+const rank = (key) => P.rankings.find((r) => r.key === key);
+const model = (name) => D.models.find((m) => m.name === name);
+const tagRow = (tag) => D.rho.findIndex((r) => r.tag === tag);
+function fillStatic() {
+  const g = rank("gbm"), lc = rank("grade"), i10 = idxOfShare(0.10);
+  const text = {
+    book_size: billions(D.portfolio.funded),
+    test_loans: D.meta.loans_test.toLocaleString("en-US"),
+    scenarios: D.meta.scenarios.toLocaleString("en-US"),
+    auc_main: model("Gradient boosting").auc.toFixed(3),
+    auc_grade: model("LC sub-grade").auc.toFixed(3),
+    auc_gain: "+" + D.gain.difference.toFixed(3),
+    auc_ci: D.gain.ci_low.toFixed(3) + " to " + D.gain.ci_high.toFixed(3),
+    realised: money(D.portfolio.realised_loss),
+    expected: money(D.portfolio.expected_loss),
+    cap_data: money(D.monte_carlo.data.cap999),
+    cap_ref: money(D.monte_carlo.reference.cap999),
+    cut_loss: money(g.principal_loss[0] - g.principal_loss[i10]),
+    cut_profit: money(g.net_pnl[0] - g.net_pnl[i10], 1),
+    cut_profit_grade: money(lc.net_pnl[0] - lc.net_pnl[i10], 1),
+    checks: String(D.meta.checks),
+  };
+  document.querySelectorAll("[data-k]").forEach((e) => {
+    const v = text[e.dataset.k];
+    if (v === undefined) throw new Error("missing text key " + e.dataset.k);
+    e.textContent = v;
+  });
+
+  const r = D.rule;
+  $("#rule-callout").replaceChildren();
+  const strong = document.createElement("strong");
+  strong.textContent = "A rule with no chosen percentage: ";
+  $("#rule-callout").append(strong, document.createTextNode(
+    `decline any loan the model expects to lose money on. It turns away ${pct(r.declined_share, 1)} of applicants (${money(r.funded_declined)} of lending). ` +
+    `Those loans defaulted ${pct(r.default_rate, 1)} of the time and lost ${money(-r.net_pnl, 1)} after interest. Lending Club's pricing covered expected losses for nearly every borrower, so the value lies in ranking marginal loans better.`));
+
+  const byKind = (k) => D.variants.filter((x) => x.kind === k);
+  const pit = byKind("pit");
+  $("#models-prose").textContent =
+    `Lending Club's grade is already a credit model, so beating it at all is the result. The main model learns from the final outcome of 2012-13 loans, which a lender could not have known in January 2015. ` +
+    `Trained only on what was visible by then (early delinquency), it still scores ${pit[0].auc.toFixed(3)}, ahead of the grade's ${model("LC sub-grade").auc.toFixed(3)}. ` +
+    `Trained only on loans that had fully matured, it drops to ${pit[1].auc.toFixed(3)}, so the advantage depends on recent performance data.`;
+
+  const pf = D.portfolio;
+  $("#calib-caption").textContent =
+    `The ranking held: actual default rates rise across all ten deciles. The level did not: 2015 loans defaulted ${pct(pf.default_rate, 1)} of the time against ${pct(pf.mean_pd, 1)} predicted, ` +
+    `after ${pct(D.meta.default_rate.train, 1)} for 2012-13 loans and ${pct(D.meta.default_rate.calib, 1)} for 2014. That drift explains ${money(pf.gap_default)} of the ${money(pf.gap)} forecast miss.`;
+
+  const ce = D.grades.filter((x) => "CDE".includes(x.grade));
+  const sum = (arr, k) => arr.reduce((a, b) => a + b[k], 0);
+  const A = D.grades.find((x) => x.grade === "A");
+  $("#grades-prose").textContent =
+    `Grades C to E are ${pct(sum(ce, "share_funded"))} of lending but ${pct(sum(ce, "share_el"))} of expected loss and ${pct(sum(ce, "share_tail"))} of tail loss. ` +
+    `Grade A shows the reverse on a smaller scale: ${pct(A.share_el)} of expected loss but ${pct(A.share_tail)} of tail loss, because in a bad year safe borrowers deteriorate proportionally more.`;
+}
+
+/* ---------- tables ---------- */
+function table(el, head, rows, selIndex = -1) {
+  el.replaceChildren();
+  const thead = el.createTHead().insertRow();
+  head.forEach((h) => { const th = document.createElement("th"); th.textContent = h; thead.appendChild(th); });
+  const tb = el.createTBody();
+  rows.forEach((r, i) => {
+    const tr = tb.insertRow();
+    if (i === selIndex) tr.className = "sel";
+    r.forEach((c) => { tr.insertCell().textContent = c; });
+  });
+}
+
+/* ---------- 1. approval policy ---------- */
+const state = { share: idxOfShare(0.10), rank: "gbm", metric: "profit", rho: tagRow("data") };
+const RANK_STYLE = {
+  gbm: { color: "--s1", dash: false },
+  pit: { color: "--s2", dash: true },
+  grade: { color: "--s-neutral", dash: false },
+};
+function metricSeries(r, metric) {
+  if (metric === "profit") return r.net_pnl;
+  if (metric === "loss") return r.principal_loss.map((v) => r.principal_loss[0] - v);
+  return r.cap_ref;
+}
+const METRIC_TEXT = {
+  profit: { axis: "Lifetime net profit", fmt: (v) => money(v, 0) },
+  loss: { axis: "Principal losses avoided", fmt: (v) => money(v, 0) },
+  cap: { axis: "Capital at 99.9%, Basel correlation", fmt: (v) => money(v, 0) },
+};
+
+function updatePolicy() {
+  const r = rank(state.rank), i = state.share;
+  $("#share-out").textContent = pct(P.shares[i]);
+  const setStat = (id, v, d, tone) => {
+    const e = $("#" + id);
+    e.textContent = v;
+    e.className = "v" + (tone ? " " + tone : "");
+    $("#" + id + "-d").textContent = d;
+  };
+  const dp = r.net_pnl[i] - r.net_pnl[0];
+  const dpr = +dp.toFixed(1);
+  setStat("p-profit", signedMoney(dp, 1), `${signedPct(dp / r.net_pnl[0])} on ${money(r.net_pnl[0], 1)} earned with no cut`, dpr > 0 ? "good" : dpr < 0 ? "bad" : "");
+  const dl = r.principal_loss[0] - r.principal_loss[i];
+  setStat("p-loss", money(dl, 1), `${pct(dl / r.principal_loss[0])} of ${money(r.principal_loss[0])} lost with no cut`);
+  const df = r.funded[0] - r.funded[i];
+  setStat("p-lend", money(df), `${pct(df / r.funded[0], 1)} of the ${billions(r.funded[0])} lent; ${(r.loans[0] - r.loans[i]).toLocaleString("en-US")} loans`);
+  setStat("p-dr", pct(r.default_rate[i], 1), `${pct(r.default_rate[0], 1)} with no cut`);
+  const cuts = [1 - r.cap_ref[i] / r.cap_ref[0], 1 - r.cap_data[i] / r.cap_data[0]].sort((a, b) => a - b);
+  const capText = pct(cuts[0]) === pct(cuts[1]) ? pct(cuts[0]) : `${pct(cuts[0])} to ${pct(cuts[1])}`;
+  setStat("p-cap", capText, `${money(r.cap_ref[i])} needed at the Basel correlation, ${money(r.cap_data[i])} at the data estimate`);
+
+  $("#policy-caption").textContent =
+    `Profit is cash received minus cash lent over the loans' lives, before funding and servicing costs. With no cut the 2015 book earned ${money(P.book.net_pnl, 1)} (${pct(P.book.return, 2)} of the amount lent). ` +
+    `Capital is always measured with the main model's default probabilities, so the three rankings are compared on the same footing.`;
+
+  const rows = P.shares.map((s, k) => [pct(s), signedMoney(r.net_pnl[k] - r.net_pnl[0], 1), money(r.principal_loss[0] - r.principal_loss[k], 1),
+    money(r.funded[0] - r.funded[k]), pct(r.default_rate[k], 1), money(r.cap_ref[k]), money(r.cap_data[k])]);
+  table($("#policy-table"), ["Declined (" + r.label + ")", "Profit change", "Losses avoided", "Lending given up", "Default rate kept", "Capital, Basel", "Capital, data"], rows, i);
+  drawPolicy();
+}
+
+function drawPolicy() {
+  const box = $("#policy-chart");
+  const narrow = box.clientWidth < 520;
+  const f = frame(box, narrow ? 260 : 320, { l: 58, r: 16, t: 14, b: 44 });
+  const xs = P.shares;
+  const sx = scale(0, xs[xs.length - 1], f.x0, f.x1);
+  const series = P.rankings.map((r) => ({ r, ys: metricSeries(r, state.metric) }));
+  let lo = Math.min(...series.flatMap((s) => s.ys)), hi = Math.max(...series.flatMap((s) => s.ys));
+  const padv = (hi - lo) * 0.08 || 1;
+  lo -= padv; hi += padv;
+  if (state.metric !== "profit") lo = Math.min(lo, 0);
+  const ticks = niceTicks(lo, hi, narrow ? 4 : 5);
+  lo = Math.min(lo, ticks[0]); hi = Math.max(hi, ticks[ticks.length - 1]);
+  const sy = scale(lo, hi, f.y0, f.y1);
+  yAxis(f, sy, ticks, METRIC_TEXT[state.metric].fmt);
+  xAxis(f, sx, [0, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30], (v) => pct(v), "Share of applicants declined, riskiest first");
+  label(f.svg, f.x0, f.y1 - 2, METRIC_TEXT[state.metric].axis, "axis-title", "start", { dy: "-2" });
+
+  if (state.metric === "profit") {
+    const y = sy(series[0].ys[0]);
+    node("line", { x1: f.x0, x2: f.x1, y1: y, y2: y, stroke: cssVar("--axis"), "stroke-width": 1, "stroke-dasharray": "4 4" }, f.svg);
+    label(f.svg, f.x1, y - 6, "No cut", "tick", "end");
+  }
+  // draw the selected ranking last so it sits on top
+  const order = [...series].sort((a, b) => (a.r.key === state.rank) - (b.r.key === state.rank));
+  for (const s of order) {
+    const st = RANK_STYLE[s.r.key], sel = s.r.key === state.rank;
+    node("path", {
+      d: pathFrom(xs.map(sx), s.ys.map(sy)), fill: "none", stroke: cssVar(st.color),
+      "stroke-width": sel ? 2.75 : 2, "stroke-dasharray": st.dash ? "6 4" : "none",
+      opacity: sel ? 1 : 0.55, class: "series", "stroke-linejoin": "round", "stroke-linecap": "round",
+    }, f.svg);
+  }
+  // selection marker
+  const xi = sx(xs[state.share]);
+  node("line", { x1: xi, x2: xi, y1: f.y1, y2: f.y0, stroke: cssVar("--ink"), "stroke-width": 1, opacity: 0.35 }, f.svg);
+  for (const s of order) {
+    const sel = s.r.key === state.rank;
+    node("circle", { cx: xi, cy: sy(s.ys[state.share]), r: sel ? 5.5 : 4, fill: cssVar(RANK_STYLE[s.r.key].color), stroke: cssVar("--surface"), "stroke-width": 2 }, f.svg);
+  }
+  const selS = series.find((s) => s.r.key === state.rank);
+  const vy = sy(selS.ys[state.share]);
+  const right = xi > (f.x0 + f.x1) / 2;
+  label(f.svg, xi + (right ? -10 : 10), vy - 10, METRIC_TEXT[state.metric].fmt(selS.ys[state.share]), "ann-strong", right ? "end" : "start");
+
+  // hover layer
+  const cross = node("line", { y1: f.y1, y2: f.y0, stroke: cssVar("--muted"), "stroke-width": 1, visibility: "hidden" }, f.svg);
+  const hit = node("rect", { x: f.x0, y: f.y1, width: f.x1 - f.x0, height: f.y0 - f.y1, class: "hit" }, f.svg);
+  const nearest = (evt) => {
+    const b = f.svg.getBoundingClientRect();
+    const v = sx.invert(evt.clientX - b.left);
+    return Math.max(0, Math.min(xs.length - 1, Math.round(v / 0.01)));
+  };
+  hit.addEventListener("pointermove", (evt) => {
+    const k = nearest(evt);
+    cross.setAttribute("x1", sx(xs[k])); cross.setAttribute("x2", sx(xs[k])); cross.setAttribute("visibility", "visible");
+    showTip(evt, `${pct(xs[k])} declined · ${METRIC_TEXT[state.metric].axis.toLowerCase()}`,
+      series.map((s) => ({ value: METRIC_TEXT[state.metric].fmt(s.ys[k]), label: s.r.label, color: cssVar(RANK_STYLE[s.r.key].color), dash: RANK_STYLE[s.r.key].dash })));
+  });
+  hit.addEventListener("pointerleave", () => { cross.setAttribute("visibility", "hidden"); hideTip(); });
+  hit.addEventListener("click", (evt) => {
+    state.share = nearest(evt);
+    $("#share").value = Math.round(xs[state.share] * 100);
+    hideTip();
+    updatePolicy();
+  });
+}
+
+/* ---------- 2. capital and correlation ---------- */
+const lossGrid = D.loss_grid;
+function survival(density) {
+  // P(loss >= x) on the grid, by the trapezoid rule, normalised to the grid's total mass
+  const n = density.length, cum = new Array(n).fill(0);
+  for (let k = 1; k < n; k++) cum[k] = cum[k - 1] + 0.5 * (density[k] + density[k - 1]) * (lossGrid[k] - lossGrid[k - 1]);
+  const total = cum[n - 1];
+  return cum.map((c) => 1 - c / total);
+}
+function updateCapital() {
+  const row = D.rho[state.rho];
+  const tagText = row.tag === "data" ? " (data estimate)" : row.tag === "reference" ? " (Basel)" : "";
+  $("#rho-out").textContent = rhoText(row.rho);
+  $("#rho").setAttribute("aria-valuetext", rhoText(row.rho) + tagText);
+  $("#preset-data").setAttribute("aria-pressed", String(row.tag === "data"));
+  $("#preset-ref").setAttribute("aria-pressed", String(row.tag === "reference"));
+  $("#c-el").textContent = money(row.el);
+  $("#c-v99").textContent = money(row.var99);
+  $("#c-v99-d").textContent = `${signedMoney(row.var99 - row.el, 0)} above expected`;
+  $("#c-v999").textContent = money(row.var999);
+  $("#c-v999-d").textContent = `${signedMoney(row.var999 - row.el, 0)} above expected`;
+  $("#c-cap").textContent = money(row.cap999);
+  $("#c-cap-d").textContent = `${pct(row.cap999 / D.portfolio.funded, 1)} of the amount lent`;
+  $("#c-pct").textContent = percentileText(row.pct) + " percentile";
+  const oneIn = 1 / Math.max(1 - row.pct, 1e-9);
+  $("#c-pct-d").textContent = oneIn >= 1000 ? "a worse than 1-in-1,000 outcome" : `a loss this large happens about 1 time in ${Math.round(oneIn)}`;
+
+  const mcd = D.monte_carlo.data, mcr = D.monte_carlo.reference;
+  $("#capital-caption").textContent =
+    `This explorer uses the semi-analytic method so it can respond instantly. At the two marked settings the full loan-by-loan simulation gives capital of ${money(mcd.cap999)} and ${money(mcr.cap999)}; the two methods agree within 1%. ` +
+    `The data estimate (${rhoText(D.correlation.rho_data)}, 95% interval ${rhoText(D.correlation.ci_low)} to ${rhoText(D.correlation.ci_high)}) puts 2015's actual loss far into the tail, which suggests it is too low: 2015 was not a recession year.`;
+
+  table($("#rho-table"), ["Correlation", "Expected loss", "1-in-100 loss", "1-in-1,000 loss", "Capital (99.9%)", "Actual 2015 loss, percentile"],
+    D.rho.map((x) => [rhoText(x.rho) + (x.tag === "data" ? " (data)" : x.tag === "reference" ? " (Basel)" : ""), money(x.el), money(x.var99), money(x.var999), money(x.cap999), percentileText(x.pct)]),
+    state.rho);
+  drawDensity();
+  drawCapitalCurve();
+}
+
+function drawDensity() {
+  const box = $("#density-chart");
+  const narrow = window.innerWidth < 700;
+  const f = frame(box, narrow ? 250 : 300, { l: 14, r: 16, t: 50, b: 44 });
+  const row = D.rho[state.rho], dens = D.density[state.rho];
+  const sx = scale(0, lossGrid[lossGrid.length - 1], f.x0, f.x1);
+  const ymax = Math.max(...dens) * 1.05;
+  const sy = scale(0, ymax, f.y0, f.y1);
+  for (const t of niceTicks(0, lossGrid[lossGrid.length - 1], narrow ? 4 : 8))
+    node("line", { x1: sx(t), x2: sx(t), y1: f.y1, y2: f.y0, class: "grid-line" }, f.svg);
+  xAxis(f, sx, niceTicks(0, lossGrid[lossGrid.length - 1], narrow ? 4 : 8), (v) => money(v), "Lifetime credit loss");
+
+  const X = lossGrid.map(sx), Y = dens.map(sy);
+  node("path", { d: pathFrom(X, Y) + `L${X[X.length - 1]},${f.y0}L${X[0]},${f.y0}Z`, fill: cssVar("--s1-soft"), class: "area" }, f.svg);
+  // shade outcomes at least as bad as the actual 2015 loss
+  const real = D.portfolio.realised_loss;
+  const k0 = lossGrid.findIndex((v) => v >= real);
+  if (k0 > 0) {
+    const yReal = sy(dens[k0 - 1] + (dens[k0] - dens[k0 - 1]) * (real - lossGrid[k0 - 1]) / (lossGrid[k0] - lossGrid[k0 - 1]));
+    const tx = [sx(real), ...X.slice(k0)], ty = [yReal, ...Y.slice(k0)];
+    node("path", { d: pathFrom(tx, ty) + `L${tx[tx.length - 1]},${f.y0}L${tx[0]},${f.y0}Z`, fill: cssVar("--s2-soft") }, f.svg);
+  }
+  node("path", { d: pathFrom(X, Y), fill: "none", stroke: cssVar("--s1"), "stroke-width": 2, "stroke-linejoin": "round" }, f.svg);
+
+  // reference lines, labels stacked in three rows above the plot
+  const marks = [
+    { v: row.el, text: `Expected ${money(row.el)}`, color: cssVar("--ink"), cls: "ann", row: 0 },
+    { v: real, text: `Actual 2015 ${money(real)}`, color: cssVar("--s2"), cls: "ann-strong", row: 1 },
+    { v: row.var999, text: `1-in-1,000 ${money(row.var999)}`, color: cssVar("--ink-2"), cls: "ann", row: 2, dash: "4 3" },
+  ];
+  for (const m of marks) {
+    const x = sx(m.v);
+    const yTop = f.y1 - 40 + m.row * 14;
+    node("line", { x1: x, x2: x, y1: yTop + 4, y2: f.y0, stroke: m.color, "stroke-width": 1.5, "stroke-dasharray": m.dash || "none" }, f.svg);
+    const toLeft = x > f.x1 - 120;
+    label(f.svg, x + (toLeft ? -5 : 5), yTop + 2, m.text, m.cls, toLeft ? "end" : "start");
+  }
+
+  const surv = survival(dens);
+  const cross = node("line", { y1: f.y1, y2: f.y0, stroke: cssVar("--muted"), "stroke-width": 1, visibility: "hidden" }, f.svg);
+  const hit = node("rect", { x: f.x0, y: f.y1 - 44, width: f.x1 - f.x0, height: f.y0 - f.y1 + 44, class: "hit" }, f.svg);
+  hit.addEventListener("pointermove", (evt) => {
+    const b = f.svg.getBoundingClientRect();
+    const v = sx.invert(evt.clientX - b.left);
+    const k = Math.max(0, Math.min(lossGrid.length - 1, Math.round(v / (lossGrid[1] - lossGrid[0]))));
+    cross.setAttribute("x1", sx(lossGrid[k])); cross.setAttribute("x2", sx(lossGrid[k])); cross.setAttribute("visibility", "visible");
+    const s = surv[k];
+    const sText = s < 0.001 ? "under 0.1%" : s > 0.999 ? "over 99.9%" : pct(s, s < 0.01 ? 2 : 1);
+    showTip(evt, `Correlation ${rhoText(row.rho)}`, [{ value: sText, label: `chance of losing ${money(lossGrid[k])} or more`, color: cssVar("--s1") }]);
+  });
+  hit.addEventListener("pointerleave", () => { cross.setAttribute("visibility", "hidden"); hideTip(); });
+}
+
+function drawCapitalCurve() {
+  const box = $("#capital-chart");
+  const f = frame(box, window.innerWidth < 700 ? 250 : 300, { l: 54, r: 16, t: 50, b: 44 });
+  const rows = D.rho;
+  const xmax = rows[rows.length - 1].rho;
+  const sx = scale(0, xmax, f.x0, f.x1);
+  const ymax = Math.max(...rows.map((r) => r.cap999));
+  const ticks = niceTicks(0, ymax * 1.05, 5);
+  const sy = scale(0, ticks[ticks.length - 1], f.y0, f.y1);
+  const c = D.correlation;
+  node("rect", { x: sx(c.ci_low), y: f.y1, width: Math.max(2, sx(c.ci_high) - sx(c.ci_low)), height: f.y0 - f.y1, fill: cssVar("--band") }, f.svg);
+  yAxis(f, sy, ticks, (v) => money(v));
+  xAxis(f, sx, niceTicks(0, xmax, 6), (v) => pct(v), "Asset correlation");
+  node("path", { d: pathFrom(rows.map((r) => sx(r.rho)), rows.map((r) => sy(r.cap999))), fill: "none", stroke: cssVar("--ink-2"), "stroke-width": 2, "stroke-linejoin": "round" }, f.svg);
+  for (const tag of ["data", "reference"]) {
+    const r = rows[tagRow(tag)];
+    node("circle", { cx: sx(r.rho), cy: sy(r.cap999), r: 5, fill: cssVar(tag === "data" ? "--s1" : "--s2"), stroke: cssVar("--surface"), "stroke-width": 2 }, f.svg);
+  }
+  const sel = rows[state.rho];
+  node("circle", { cx: sx(sel.rho), cy: sy(sel.cap999), r: 9, fill: "none", stroke: cssVar("--ink"), "stroke-width": 1.5 }, f.svg);
+  const right = sx(sel.rho) > (f.x0 + f.x1) * 0.6;
+  label(f.svg, sx(sel.rho) + (right ? -14 : 14), sy(sel.cap999) - 12, money(sel.cap999), "ann-strong", right ? "end" : "start");
+
+  const cross = node("line", { y1: f.y1, y2: f.y0, stroke: cssVar("--muted"), "stroke-width": 1, visibility: "hidden" }, f.svg);
+  const hit = node("rect", { x: f.x0, y: f.y1, width: f.x1 - f.x0, height: f.y0 - f.y1, class: "hit" }, f.svg);
+  const nearest = (evt) => {
+    const b = f.svg.getBoundingClientRect();
+    const v = sx.invert(evt.clientX - b.left);
+    let best = 0;
+    rows.forEach((r, k) => { if (Math.abs(r.rho - v) < Math.abs(rows[best].rho - v)) best = k; });
+    return best;
+  };
+  hit.addEventListener("pointermove", (evt) => {
+    const k = nearest(evt);
+    cross.setAttribute("x1", sx(rows[k].rho)); cross.setAttribute("x2", sx(rows[k].rho)); cross.setAttribute("visibility", "visible");
+    const tag = rows[k].tag === "data" ? " (data estimate)" : rows[k].tag === "reference" ? " (Basel)" : "";
+    showTip(evt, `Correlation ${rhoText(rows[k].rho)}${tag}`, [
+      { value: money(rows[k].cap999), label: "capital at 99.9%", color: cssVar("--ink-2") },
+      { value: money(rows[k].var999), label: "1-in-1,000 loss" },
+    ]);
+  });
+  hit.addEventListener("pointerleave", () => { cross.setAttribute("visibility", "hidden"); hideTip(); });
+  hit.addEventListener("click", (evt) => { state.rho = nearest(evt); $("#rho").value = state.rho; hideTip(); updateCapital(); });
+}
+
+/* ---------- 3. models ---------- */
+function drawAuc() {
+  const box = $("#auc-chart");
+  const rowH = 46;
+  const items = D.variants;
+  const f = frame(box, items.length * rowH + 40, { l: 4, r: 52, t: 6, b: 34 });
+  const lo = 0.64;
+  const ticks = niceTicks(lo, 0.71, box.clientWidth < 420 ? 3 : 7);
+  const sx = scale(lo, ticks[ticks.length - 1], f.x0, f.x1);
+  for (const t of ticks) node("line", { x1: sx(t), x2: sx(t), y1: f.y1, y2: f.y0, class: "grid-line" }, f.svg);
+  xAxis(f, sx, ticks, (v) => v.toFixed(2));
+  const bench = items.find((x) => x.kind === "benchmark").auc;
+  node("line", { x1: sx(bench), x2: sx(bench), y1: f.y1, y2: f.y0, stroke: cssVar("--s-neutral"), "stroke-width": 1.5 }, f.svg);
+  const color = { main: "--s1", check: "--s1", pit: "--s2", benchmark: "--s-neutral" };
+  items.forEach((it, k) => {
+    const y = f.y1 + k * rowH;
+    label(f.svg, f.x0, y + 14, it.label, it.kind === "main" ? "ann-strong" : "ann");
+    const cy = y + 30;
+    node("line", { x1: sx(lo), x2: sx(it.auc), y1: cy, y2: cy, stroke: cssVar("--grid"), "stroke-width": 2 }, f.svg);
+    const g = node("g", { class: "bar-mark", tabindex: 0, role: "img", "aria-label": `${it.label}: AUC ${it.auc.toFixed(3)}` }, f.svg);
+    node("circle", { cx: sx(it.auc), cy, r: 12, fill: "transparent" }, g);
+    node("circle", { cx: sx(it.auc), cy, r: it.kind === "main" ? 6.5 : 5.5, fill: cssVar(color[it.kind]), stroke: cssVar("--surface"), "stroke-width": 2 }, g);
+    label(f.svg, sx(it.auc) + 11, cy + 4, it.auc.toFixed(3), "tick");
+    const show = (evt) => showTip(evt, it.label, [{ value: it.auc.toFixed(3), label: "AUC on 2015 loans", color: cssVar(color[it.kind]) },
+      { value: (it.auc - bench >= 0 ? "+" : MINUS) + Math.abs(it.auc - bench).toFixed(3), label: "vs Lending Club grade" }]);
+    g.addEventListener("pointermove", show);
+    g.addEventListener("focus", show);
+    g.addEventListener("pointerleave", hideTip);
+    g.addEventListener("blur", hideTip);
+  });
+}
+
+function drawCalibration() {
+  const box = $("#calib-chart");
+  const W = box.clientWidth;
+  const size = Math.min(W, 380);
+  const f = frame(box, size, { l: 46, r: 12, t: 10, b: 44 });
+  const top = 0.35;
+  const sx = scale(0, top, f.x0, f.x1), sy = scale(0, top, f.y0, f.y1);
+  const ticks = [0, 0.05, 0.10, 0.15, 0.20, 0.25, 0.30, 0.35].filter((t, i) => W >= 420 || i % 2 === 0);
+  yAxis(f, sy, ticks, (v) => pct(v));
+  xAxis(f, sx, ticks, (v) => pct(v), "Predicted default rate");
+  label(f.svg, f.x0, f.y1 - 2, "Actual", "axis-title", "start", { dy: "-1" });
+  node("line", { x1: sx(0), y1: sy(0), x2: sx(top), y2: sy(top), stroke: cssVar("--s-neutral"), "stroke-width": 1.5, "stroke-dasharray": "5 4" }, f.svg);
+  const pts = D.calibration;
+  node("path", { d: pathFrom(pts.map((p) => sx(p.predicted)), pts.map((p) => sy(p.observed))), fill: "none", stroke: cssVar("--s1"), "stroke-width": 2 }, f.svg);
+  for (const p of pts) {
+    const g = node("g", { class: "bar-mark", tabindex: 0, role: "img", "aria-label": `Decile ${p.decile}: predicted ${pct(p.predicted, 1)}, actual ${pct(p.observed, 1)}` }, f.svg);
+    node("circle", { cx: sx(p.predicted), cy: sy(p.observed), r: 12, fill: "transparent" }, g);
+    node("circle", { cx: sx(p.predicted), cy: sy(p.observed), r: 4.5, fill: cssVar("--s1"), stroke: cssVar("--surface"), "stroke-width": 2 }, g);
+    const show = (evt) => showTip(evt, `Risk decile ${p.decile} of 10`, [
+      { value: pct(p.observed, 1), label: "actual default rate", color: cssVar("--s1") },
+      { value: pct(p.predicted, 1), label: "predicted", color: cssVar("--s-neutral"), dash: true }]);
+    g.addEventListener("pointermove", show); g.addEventListener("focus", show);
+    g.addEventListener("pointerleave", hideTip); g.addEventListener("blur", hideTip);
+  }
+}
+
+function modelTable() {
+  const names = { "LC sub-grade": "Lending Club sub-grade", "Logistic regression": "Logistic regression", "Gradient boosting": "Gradient boosting (main model)" };
+  table($("#model-table"), ["Model, recalibrated on 2014 loans", "AUC", "KS", "Mean predicted default rate", "Actual 2015 default rate"],
+    D.models.map((m) => [names[m.name], m.auc.toFixed(3), m.ks.toFixed(3), pct(m.mean_pd, 1), pct(D.portfolio.default_rate, 1)]));
+}
+
+/* ---------- 4. grades and drivers ---------- */
+function drawGrades() {
+  const box = $("#grade-chart");
+  const narrow = box.clientWidth < 460;
+  const f = frame(box, narrow ? 250 : 290, { l: 42, r: 8, t: 14, b: 34 });
+  const G = D.grades;
+  const keys = [["share_funded", "--s-neutral", "Share of lending"], ["share_el", "--s1", "Share of expected loss"], ["share_tail", "--s2", "Share of tail loss"]];
+  const ymax = Math.max(...G.flatMap((g) => keys.map(([k]) => g[k])));
+  const ticks = niceTicks(0, ymax * 1.05, 4);
+  const sy = scale(0, ticks[ticks.length - 1], f.y0, f.y1);
+  yAxis(f, sy, ticks, (v) => pct(v));
+  node("line", { x1: f.x0, x2: f.x1, y1: f.y0, y2: f.y0, class: "base-line" }, f.svg);
+  const band = (f.x1 - f.x0) / G.length;
+  const gap = 2, bw = Math.max(3, (band * 0.78 - gap * 2) / 3);
+  G.forEach((g, i) => {
+    const gx = f.x0 + i * band + (band - (bw * 3 + gap * 2)) / 2;
+    label(f.svg, f.x0 + i * band + band / 2, f.y0 + 18, g.grade, "tick", "middle");
+    const show = (evt) => showTip(evt, `Grade ${g.grade}`, keys.map(([kk, cc, nn]) => ({ value: pct(g[kk], 1), label: nn.toLowerCase(), color: cssVar(cc) })));
+    keys.forEach(([k, col, name], j) => {
+      const x = gx + j * (bw + gap), y = sy(g[k]);
+      const p = node("path", { d: barPath(x, y, bw, f.y0 - y, 3), fill: cssVar(col), class: "bar-mark", tabindex: 0, role: "img", "aria-label": `Grade ${g.grade}, ${name.toLowerCase()}: ${pct(g[k], 1)}` }, f.svg);
+      p.addEventListener("focus", show); p.addEventListener("blur", hideTip);
+    });
+    // the whole column of a grade is the hover target, so the pointer never has to land on a thin bar
+    const col = node("rect", { x: f.x0 + i * band, y: f.y1, width: band, height: f.y0 - f.y1, fill: "transparent" }, f.svg);
+    col.addEventListener("pointermove", (evt) => { show(evt); col.setAttribute("fill", cssVar("--grid")); col.setAttribute("fill-opacity", "0.35"); });
+    col.addEventListener("pointerleave", () => { hideTip(); col.setAttribute("fill", "transparent"); });
+  });
+  label(f.svg, (f.x0 + f.x1) / 2, f.y0 + 32, "Lending Club grade (A safest)", "axis-title", "middle");
+  table($("#grade-table"), ["Grade", "Loans", "Lent", "Predicted default rate", "Actual default rate", "Realised return", "Share of lending", "Share of expected loss", "Share of tail loss"],
+    G.map((g) => [g.grade, g.loans.toLocaleString("en-US"), money(g.funded), pct(g.mean_pd, 1), pct(g.default_rate, 1), (g.realised_return < 0 ? MINUS : "") + pct(Math.abs(g.realised_return), 1), pct(g.share_funded, 1), pct(g.share_el, 1), pct(g.share_tail, 1)]));
+}
+
+function drawDrivers() {
+  const box = $("#driver-chart");
+  const W = box.clientWidth;
+  const narrow = W < 460;
+  const rowH = narrow ? 40 : 24;
+  const items = D.drivers;
+  const labelW = narrow ? 0 : Math.min(230, W * 0.46);
+  const f = frame(box, items.length * rowH + 30, { l: labelW + 4, r: 44, t: 4, b: 26 });
+  const xmax = Math.max(...items.map((d) => d.value));
+  const ticks = niceTicks(0, xmax, narrow ? 3 : 4);
+  const sx = scale(0, Math.max(xmax, ticks[ticks.length - 1]), f.x0, f.x1);
+  for (const t of ticks) node("line", { x1: sx(t), x2: sx(t), y1: f.y1, y2: f.y0, class: "grid-line" }, f.svg);
+  for (const t of ticks) label(f.svg, sx(t), f.y0 + 16, t.toFixed(2), "tick", "middle");
+  items.forEach((d, k) => {
+    const y = f.y1 + k * rowH;
+    const barY = narrow ? y + 20 : y + 5, barH = narrow ? 12 : 14;
+    if (narrow) label(f.svg, f.x0, y + 13, d.label, "ann");
+    else label(f.svg, f.x0 - 10, y + 16, d.label, "ann", "end");
+    const p = node("path", { d: barPath(f.x0, barY, sx(d.value) - f.x0, barH, 3, "right"), fill: cssVar("--s1"), class: "bar-mark", tabindex: 0, role: "img", "aria-label": `${d.label}: ${d.value.toFixed(3)}` }, f.svg);
+    label(f.svg, sx(d.value) + 6, barY + barH - 2, d.value.toFixed(3), "tick");
+    const show = (evt) => showTip(evt, d.label, [{ value: d.value.toFixed(3), label: "mean |SHAP|, log-odds", color: cssVar("--s1") }]);
+    p.addEventListener("pointermove", show); p.addEventListener("focus", show);
+    p.addEventListener("pointerleave", hideTip); p.addEventListener("blur", hideTip);
+  });
+  node("line", { x1: f.x0, x2: f.x0, y1: f.y1, y2: f.y0, class: "base-line" }, f.svg);
+}
+
+/* ---------- wiring ---------- */
+function renderAll() {
+  drawPolicy(); drawDensity(); drawCapitalCurve(); drawAuc(); drawCalibration(); drawGrades(); drawDrivers();
+}
+function init() {
+  fillStatic();
+  modelTable();
+  const share = $("#share");
+  share.max = Math.round(P.shares[P.shares.length - 1] * 100);
+  share.value = Math.round(P.shares[state.share] * 100);
+  share.addEventListener("input", () => { state.share = idxOfShare(+share.value / 100); updatePolicy(); });
+  document.querySelectorAll('input[name="rank"]').forEach((r) => r.addEventListener("change", () => { state.rank = r.value; updatePolicy(); }));
+  document.querySelectorAll('input[name="metric"]').forEach((r) => r.addEventListener("change", () => { state.metric = r.value; drawPolicy(); }));
+  const rho = $("#rho");
+  rho.max = D.rho.length - 1;
+  rho.value = state.rho;
+  rho.addEventListener("input", () => { state.rho = +rho.value; updateCapital(); });
+  $("#preset-data").addEventListener("click", () => { state.rho = tagRow("data"); rho.value = state.rho; updateCapital(); });
+  $("#preset-ref").addEventListener("click", () => { state.rho = tagRow("reference"); rho.value = state.rho; updateCapital(); });
+  updatePolicy();
+  updateCapital();
+  drawAuc(); drawCalibration(); drawGrades(); drawDrivers();
+
+  let pending = 0, lastW = window.innerWidth;
+  const redraw = () => { cancelAnimationFrame(pending); pending = requestAnimationFrame(renderAll); };
+  new ResizeObserver(() => { if (window.innerWidth !== lastW) { lastW = window.innerWidth; redraw(); } }).observe(document.body);
+  matchMedia("(prefers-color-scheme: dark)").addEventListener("change", redraw);
+  new MutationObserver(redraw).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  document.addEventListener("scroll", hideTip, { passive: true });
+}
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => requestAnimationFrame(renderAll));
+init();
+</script>
+</body>
+</html>
